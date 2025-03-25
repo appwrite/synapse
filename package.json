@@ -1,0 +1,47 @@
+{
+  "name": "synapse",
+  "version": "0.1.0",
+  "description": "Operating system gateway for remote serverless environments",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write .",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm test && npm run lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/appwrite/synapse.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.13",
+    "@types/ws": "^8.18.0",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "esbuild": "^0.25.1",
+    "esbuild-plugin-file-path-extensions": "^2.1.4",
+    "eslint": "^9.23.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.5.3",
+    "ts-jest": "^29.3.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2"
+  },
+  "bugs": {
+    "url": "https://github.com/appwrite/synapse/issues"
+  },
+  "homepage": "https://github.com/appwrite/synapse#readme"
+}
