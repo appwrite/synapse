@@ -1,16 +1,6 @@
-import * as pty from "node-pty";
 import * as os from "os";
 import WebSocket from "ws";
-import Filesystem, { FileOperationResult } from "./services/filesystem";
-import System, { SystemUsageData } from "./services/system";
-
-type SynapseOptions = {
-  shell?: string;
-  cols?: number;
-  rows?: number;
-  workdir?: string;
-  logger?: (message: string) => void;
-};
+import { type TerminalOptions } from "./services/terminal";
 
 type MessagePayload = {
   type: string;
@@ -21,41 +11,24 @@ type MessagePayload = {
 type MessageHandler = (message: MessagePayload) => void;
 type ConnectionCallback = () => void;
 type ErrorCallback = (error: Error) => void;
-
 class Synapse {
-  private options: Required<SynapseOptions>;
   private ws: WebSocket | null = null;
-  private term: pty.IPty | null = null;
   private messageHandlers: Record<string, MessageHandler> = {};
   private connectionListeners = {
     onOpen: (() => {}) as ConnectionCallback,
     onClose: (() => {}) as ConnectionCallback,
     onError: (() => {}) as ErrorCallback,
   };
-  private filesystem: Filesystem;
-  private system: System;
-
-  constructor(options: SynapseOptions = {}) {
-    const defaultLogger = (message: string): void => {
-      if (options.logger) {
-        options.logger(message);
-      } else {
-        console.log(message);
-      }
-    };
-
-    this.options = {
-      shell: os.platform() === "win32" ? "powershell.exe" : "bash",
-      cols: 80,
-      rows: 24,
-      workdir: process.cwd(),
-      logger: defaultLogger,
-      ...options,
-    };
-
-    this.filesystem = new Filesystem(this.options.logger);
-    this.system = new System(this.options.logger);
-  }
+  private defaultLogger = (message: string) => {
+    console.log(message);
+  };
+  private terminalOptions: TerminalOptions = {
+    shell: os.platform() === "win32" ? "powershell.exe" : "bash",
+    cols: 80,
+    rows: 24,
+    workdir: process.cwd(),
+    logger: this.defaultLogger,
+  };
 
   /**
    * Establishes a WebSocket connection to the specified URL and initializes the terminal
@@ -68,7 +41,6 @@ class Synapse {
       this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {
-        this.initializeTerm();
         this.connectionListeners.onOpen();
         resolve(this);
       };
@@ -83,23 +55,19 @@ class Synapse {
 
       this.ws.onclose = () => {
         this.connectionListeners.onClose();
-        this.term?.kill();
       };
     });
   }
 
-  private initializeTerm(): void {
-    this.term = pty.spawn(this.options.shell, [], {
-      name: "xterm-color",
-      cols: this.options.cols,
-      rows: this.options.rows,
-      cwd: this.options.workdir,
-      env: process.env,
-    });
+  getTerminalOptions(): TerminalOptions {
+    return this.terminalOptions;
+  }
 
-    this.term.onData((data: string) => {
-      this.send("terminalOutput", { data });
-    });
+  updateTerminalOptions(options: TerminalOptions): void {
+    this.terminalOptions = {
+      ...this.terminalOptions,
+      ...options,
+    };
   }
 
   private send(type: string, payload: Record<string, any> = {}): Promise<any> {
@@ -132,18 +100,6 @@ class Synapse {
   }
 
   /**
-   * Resizes the terminal window to the specified dimensions
-   * @param cols - Number of columns for the terminal
-   * @param rows - Number of rows for the terminal
-   */
-  resizeTerminal(cols: number, rows: number): void {
-    this.send("terminal", {
-      operation: "updateSize",
-      params: { cols, rows },
-    });
-  }
-
-  /**
    * Sends a command to the terminal for execution
    * @param command - The command string to execute
    */
@@ -152,59 +108,6 @@ class Synapse {
       operation: "createCommand",
       params: { command },
     });
-  }
-
-  createFile(filepath: string, content: string): Promise<FileOperationResult> {
-    return this.filesystem.createFile(filepath, content);
-  }
-
-  getFile(filepath: string): Promise<FileOperationResult> {
-    return this.filesystem.getFile(filepath);
-  }
-
-  updateFile(filepath: string, content: string): Promise<FileOperationResult> {
-    return this.filesystem.updateFile(filepath, content);
-  }
-
-  updateFilePath(
-    filepath: string,
-    newPath: string,
-  ): Promise<FileOperationResult> {
-    return this.filesystem.updateFilePath(filepath, newPath);
-  }
-
-  deleteFile(filepath: string): Promise<FileOperationResult> {
-    return this.filesystem.deleteFile(filepath);
-  }
-
-  createFolder(folderpath: string): Promise<FileOperationResult> {
-    return this.filesystem.createFolder(folderpath);
-  }
-
-  getFolder(folderpath: string): Promise<FileOperationResult> {
-    return this.filesystem.getFolder(folderpath);
-  }
-
-  updateFolderName(
-    folderpath: string,
-    name: string,
-  ): Promise<FileOperationResult> {
-    return this.filesystem.updateFolderName(folderpath, name);
-  }
-
-  updateFolderPath(
-    folderpath: string,
-    newPath: string,
-  ): Promise<FileOperationResult> {
-    return this.filesystem.updateFolderPath(folderpath, newPath);
-  }
-
-  deleteFolder(folderpath: string): Promise<FileOperationResult> {
-    return this.filesystem.deleteFolder(folderpath);
-  }
-
-  getSystemUsage(measurementInterval?: number): Promise<SystemUsageData> {
-    return this.system.getUsage(measurementInterval);
   }
 
   /**
@@ -254,9 +157,8 @@ class Synapse {
   disconnect(): void {
     if (this.ws) {
       this.ws.close();
-      this.term?.kill();
     }
   }
 }
 
-export default Synapse;
+export { Synapse };

@@ -6,23 +6,20 @@ Operating system gateway for remote serverless environments. Synapse provides a 
 
 - 🖥️ Terminal Management
 
-  - Create and control terminal sessions
-  - Execute commands remotely
-  - Resize terminal windows
-  - Real-time terminal output streaming
+  - Remote terminal session control
+  - Command execution and output streaming
+  - Terminal customization options
 
 - 📂 File System Operations
 
-  - Create, read, update, and delete files
-  - Create, list, rename, and delete directories
-  - Move files and directories
-  - Path management
+  - Complete CRUD operations for files and directories
+  - Path and directory management
+  - File system navigation and manipulation
 
 - 📊 System Monitoring
-  - CPU usage per core and overall
-  - Memory usage statistics
-  - System load averages
-  - Real-time system metrics
+  - Real-time CPU and memory metrics
+  - System load monitoring
+  - Performance statistics
 
 ## Installation
 
@@ -35,59 +32,65 @@ npm install synapse
 ### Basic Setup
 
 ```typescript
-import Synapse from "synapse";
+import { Synapse, Terminal } from "synapse";
 
-const synapse = new Synapse({
-  shell: "bash", // Default: 'powershell.exe' on Windows, 'bash' otherwise
-  cols: 80, // Terminal columns
-  rows: 24, // Terminal rows
-  workdir: process.cwd(), // Working directory
-  logger: console.log, // Custom logger function
-});
+// Initialize Synapse for WebSocket communication
+const synapse = new Synapse();
 
 // Connect to WebSocket server
 await synapse.connect("ws://your-server-url");
+
+// Update terminal options
+synapse.updateTerminalOptions({
+  shell: "bash",
+  workdir: process.cwd(),
+  logger: console.log,
+});
+
+// Create terminal instance with Synapse
+const terminal = new Terminal(synapse);
 ```
 
 ### Terminal Operations
 
 ```typescript
-// Send a command to the terminal
-synapse.sendCommand("ls -la");
-
-// Resize the terminal
-synapse.resizeTerminal(100, 30);
+// Send commands to the terminal
+terminal.write("ls -la");
 
 // Handle terminal output
-synapse.onMessageType("terminalOutput", (message) => {
-  console.log("Terminal output:", message.data);
+terminal.onData((data) => {
+  console.log("Terminal output:", data);
 });
+
+// Resize terminal
+terminal.resize(80, 24);
+
+// Kill terminal
+terminal.kill();
 ```
 
 ### File System Operations
 
 ```typescript
-// Create a file
-await synapse.createFile("/path/to/file.txt", "Hello, World!");
+// File operations through Synapse's filesystem service
+import { Filesystem } from "synapse";
 
-// Read a file
-const { success, data } = await synapse.getFile("/path/to/file.txt");
+const filesystem = new Filesystem(synapse);
+await filesystem.createFile("/path/to/file.txt", "Hello, World!");
+const { success, data } = await filesystem.getFile("/path/to/file.txt");
 
-// Update a file
-await synapse.updateFile("/path/to/file.txt", "Updated content");
-
-// Delete a file
-await synapse.deleteFile("/path/to/file.txt");
-
-// List directory contents
-const { success, data } = await synapse.getFolder("/path/to/dir");
+// Directory operations
+const { success, data } = await filesystem.getFolder("/path/to/dir");
 ```
 
 ### System Monitoring
 
 ```typescript
-// Get system usage statistics
-const { success, data } = await synapse.getSystemUsage();
+// Get system usage statistics through Synapse's system service
+import { System } from "synapse";
+
+const system = new System(synapse);
+const { success, data } = await system.getUsage();
 console.log("CPU Usage:", data.cpuUsagePercent + "%");
 console.log("Memory Usage:", data.memoryUsagePercent + "%");
 console.log("Load Average (1m):", data.loadAverage1m);
@@ -111,25 +114,9 @@ synapse
   });
 ```
 
-## API Reference
-
-### Constructor Options
-
-```typescript
-interface SynapseOptions {
-  shell?: string; // Shell to use for terminal
-  cols?: number; // Terminal columns
-  rows?: number; // Terminal rows
-  workdir?: string; // Working directory
-  logger?: (message: string) => void; // Custom logger
-}
-```
-
-For detailed API documentation, please refer to the source code and type definitions.
-
 ## License
 
-ISC
+MIT
 
 ## Contributing
 

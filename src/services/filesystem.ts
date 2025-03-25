@@ -1,15 +1,15 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 
-export interface FileItem {
+export type FileItem = {
   name: string;
   isDirectory: boolean;
-}
+};
 
-export interface FileOperationResult {
+export type FileOperationResult = {
   success: boolean;
   data?: string | FileItem[];
-}
+};
 
 export class Filesystem {
   private logger: (message: string) => void;
@@ -263,5 +263,3 @@ export class Filesystem {
     }
   }
 }
-
-export default Filesystem;

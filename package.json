@@ -20,7 +20,7 @@
     "url": "git+https://github.com/appwrite/synapse.git"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "node-pty": "^1.0.0",
     "ws": "^8.18.1"

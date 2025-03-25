@@ -1,14 +1,14 @@
 import * as os from "os";
 
-export interface CPUTimes {
+export type CPUTimes = {
   user: number;
   nice: number;
   system: number;
   idle: number;
   irq: number;
-}
+};
 
-export interface SystemUsageData {
+export type SystemUsageData = {
   success: boolean;
   data: {
     cpuCores: number;
@@ -22,7 +22,7 @@ export interface SystemUsageData {
     memoryUsedBytes: number;
     memoryUsagePercent: number;
   };
-}
+};
 
 export class SystemService {
   private logger: (message: string) => void;
@@ -119,5 +119,3 @@ export class SystemService {
     }
   }
 }
-
-export default SystemService;
