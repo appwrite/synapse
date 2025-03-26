@@ -22,6 +22,13 @@ Operating system gateway for remote serverless environments. Synapse provides a 
   - System load monitoring
   - Performance statistics
 
+- 📦 Git Operations
+
+  - Git repository management
+  - Branch operations
+  - Commit and push changes
+  - Pull and merge remote changes
+
 ## Installation
 
 ```bash
@@ -92,6 +99,32 @@ const { success, data } = await system.getUsage();
 console.log("CPU Usage:", data.cpuUsagePercent + "%");
 console.log("Memory Usage:", data.memoryUsagePercent + "%");
 console.log("Load Average (1m):", data.loadAverage1m);
+```
+
+### Git Operations
+
+```typescript
+// Perform Git operations through Synapse's git service
+import { Synapse, Git } from "synapse";
+
+const synapse = new Synapse();
+const git = new Git(synapse);
+
+// Get current branch
+const branch = await git.getCurrentBranch();
+
+// Check repository status
+const status = await git.status();
+
+// Stage files
+await git.add(["file1.txt", "file2.txt"]);
+
+// Commit changes
+await git.commit("feat: add new features");
+
+// Pull and push changes
+await git.pull();
+await git.push();
 ```
 
 ### Event Handling

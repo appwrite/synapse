@@ -3,7 +3,7 @@ import WebSocket from "ws";
 export type MessagePayload = {
   type: string;
   requestId: string;
-  [key: string]: any;
+  [key: string]: string | Record<string, unknown>;
 };
 
 export type MessageHandler = (message: MessagePayload) => void;
@@ -37,7 +37,7 @@ class Synapse {
       this.ws.onmessage = (event: WebSocket.MessageEvent) =>
         this.handleMessage(event);
 
-      this.ws.onerror = (event: WebSocket.ErrorEvent) => {
+      this.ws.onerror = () => {
         this.connectionListeners.onError(new Error("WebSocket error occurred"));
         reject(new Error("WebSocket error occurred"));
       };
@@ -48,7 +48,10 @@ class Synapse {
     });
   }
 
-  private send(type: string, payload: Record<string, any> = {}): Promise<any> {
+  private send(
+    type: string,
+    payload: Record<string, unknown> = {},
+  ): Promise<MessagePayload> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error("WebSocket is not connected");
     }

@@ -31,12 +31,6 @@ export class SystemService {
     this.logger = logger;
   }
 
-  /**
-   * Calculate CPU usage percentage based on start and end measurements
-   * @param startUsage Initial CPU time measurements
-   * @param endUsage Final CPU time measurements
-   * @returns Percentage of CPU usage
-   */
   private calculateCPUUsage(startUsage: CPUTimes, endUsage: CPUTimes): number {
     const userDiff = endUsage.user - startUsage.user;
     const systemDiff = endUsage.system - startUsage.system;
@@ -53,10 +47,6 @@ export class SystemService {
       : Math.min(100, Math.max(0, Math.floor((workDiff / totalDiff) * 100)));
   }
 
-  /**
-   * Retrieve current CPU time measurements for all cores
-   * @returns Array of CPU time measurements
-   */
   private getCPUUsage(): CPUTimes[] {
     const cpus = os.cpus();
     return cpus.map((cpu) => ({

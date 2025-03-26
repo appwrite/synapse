@@ -16,6 +16,11 @@ export class Filesystem {
   private synapse: Synapse;
   private logger: (message: string) => void;
 
+  /**
+   * Creates a new Filesystem instance
+   * @param synapse - The Synapse instance to use
+   * @param logger - The logger function to use (defaults to console.log)
+   */
   constructor(
     synapse: Synapse,
     logger: (message: string) => void = console.log,
@@ -84,6 +89,13 @@ export class Filesystem {
     }
   }
 
+  /**
+   * Updates the content of a file
+   * @param filePath - The path to the file to update
+   * @param content - The new content to write to the file
+   * @returns Promise<FileOperationResult> indicating success or failure
+   * @throws Error if file update fails
+   */
   async updateFile(
     filePath: string,
     content: string,
@@ -110,6 +122,13 @@ export class Filesystem {
     }
   }
 
+  /**
+   * Updates the path of a file
+   * @param oldPath - The old path of the file
+   * @param newPath - The new path of the file
+   * @returns Promise<FileOperationResult> indicating success or failure
+   * @throws Error if file path update fails
+   */
   async updateFilePath(
     oldPath: string,
     newPath: string,
@@ -130,6 +149,12 @@ export class Filesystem {
     }
   }
 
+  /**
+   * Deletes a file
+   * @param filePath - The path to the file to delete
+   * @returns Promise<FileOperationResult> indicating success or failure
+   * @throws Error if file deletion fails
+   */
   async deleteFile(filePath: string): Promise<FileOperationResult> {
     try {
       this.log("deleteFile", `Deleting file at path: ${filePath}`);
@@ -200,6 +225,13 @@ export class Filesystem {
     }
   }
 
+  /**
+   * Updates the name of a folder
+   * @param dirPath - The path to the folder to rename
+   * @param name - The new name for the folder
+   * @returns Promise<FileOperationResult> indicating success or failure
+   * @throws Error if folder renaming fails
+   */
   async updateFolderName(
     dirPath: string,
     name: string,
@@ -223,6 +255,13 @@ export class Filesystem {
     }
   }
 
+  /**
+   * Updates the path of a folder
+   * @param oldPath - The old path of the folder
+   * @param newPath - The new path of the folder
+   * @returns Promise<FileOperationResult> indicating success or failure
+   * @throws Error if folder path update fails
+   */
   async updateFolderPath(
     oldPath: string,
     newPath: string,
