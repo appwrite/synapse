@@ -17,6 +17,7 @@ Operating system gateway for remote serverless environments. Synapse provides a 
   - File system navigation and manipulation
 
 - 📊 System Monitoring
+
   - Real-time CPU and memory metrics
   - System load monitoring
   - Performance statistics
@@ -40,13 +41,6 @@ const synapse = new Synapse();
 // Connect to WebSocket server
 await synapse.connect("ws://your-server-url");
 
-// Update terminal options
-synapse.updateTerminalOptions({
-  shell: "bash",
-  workdir: process.cwd(),
-  logger: console.log,
-});
-
 // Create terminal instance with Synapse
 const terminal = new Terminal(synapse);
 ```
@@ -67,19 +61,23 @@ terminal.resize(80, 24);
 
 // Kill terminal
 terminal.kill();
+
+// Disconnect from WebSocket server
+synapse.disconnect();
 ```
 
 ### File System Operations
 
 ```typescript
 // File operations through Synapse's filesystem service
-import { Filesystem } from "synapse";
+import { Synapse, Filesystem } from "synapse";
 
+const synapse = new Synapse();
 const filesystem = new Filesystem(synapse);
-await filesystem.createFile("/path/to/file.txt", "Hello, World!");
-const { success, data } = await filesystem.getFile("/path/to/file.txt");
 
-// Directory operations
+await filesystem.createFile("/path/to/file.txt", "Hello, World!");
+
+const { success, data } = await filesystem.getFile("/path/to/file.txt");
 const { success, data } = await filesystem.getFolder("/path/to/dir");
 ```
 
@@ -116,8 +114,4 @@ synapse
 
 ## License
 
-MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

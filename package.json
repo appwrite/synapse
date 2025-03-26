@@ -10,11 +10,14 @@
   "scripts": {
     "build": "tsup",
     "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write .",
     "prepare": "npm run build",
     "prepublishOnly": "npm test && npm run lint"
   },
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/appwrite/synapse.git"

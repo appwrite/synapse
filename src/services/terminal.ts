@@ -1,4 +1,5 @@
 import * as pty from "node-pty";
+import * as os from "os";
 import { Synapse } from "../synapse";
 
 export type TerminalOptions = {
@@ -6,24 +7,28 @@ export type TerminalOptions = {
   cols?: number;
   rows?: number;
   workdir?: string;
-  logger?: (message: string) => void;
 };
 
 export class Terminal {
   private term: pty.IPty | null = null;
-  private terminalOptions: TerminalOptions;
   private synapse: Synapse;
   private onDataCallback: ((data: string) => void) | null = null;
 
-  constructor(synapse: Synapse) {
+  constructor(
+    synapse: Synapse,
+    terminalOptions: TerminalOptions = {
+      shell: os.platform() === "win32" ? "powershell.exe" : "bash",
+      cols: 80,
+      rows: 24,
+      workdir: process.cwd(),
+    },
+  ) {
     this.synapse = synapse;
-    this.terminalOptions = this.synapse.getTerminalOptions();
-
-    this.term = pty.spawn(this.terminalOptions.shell, [], {
+    this.term = pty.spawn(terminalOptions.shell, [], {
       name: "xterm-color",
-      cols: this.terminalOptions.cols,
-      rows: this.terminalOptions.rows,
-      cwd: this.terminalOptions.workdir,
+      cols: terminalOptions.cols,
+      rows: terminalOptions.rows,
+      cwd: terminalOptions.workdir,
       env: process.env,
     });
 
@@ -47,7 +52,6 @@ export class Terminal {
   }
 
   kill(): void {
-    this.synapse.disconnect();
     this.term?.kill();
   }
 }

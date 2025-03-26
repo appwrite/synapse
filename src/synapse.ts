@@ -1,16 +1,15 @@
-import * as os from "os";
 import WebSocket from "ws";
-import { type TerminalOptions } from "./services/terminal";
 
-type MessagePayload = {
+export type MessagePayload = {
   type: string;
   requestId: string;
   [key: string]: any;
 };
 
-type MessageHandler = (message: MessagePayload) => void;
-type ConnectionCallback = () => void;
-type ErrorCallback = (error: Error) => void;
+export type MessageHandler = (message: MessagePayload) => void;
+export type ConnectionCallback = () => void;
+export type ErrorCallback = (error: Error) => void;
+
 class Synapse {
   private ws: WebSocket | null = null;
   private messageHandlers: Record<string, MessageHandler> = {};
@@ -18,16 +17,6 @@ class Synapse {
     onOpen: (() => {}) as ConnectionCallback,
     onClose: (() => {}) as ConnectionCallback,
     onError: (() => {}) as ErrorCallback,
-  };
-  private defaultLogger = (message: string) => {
-    console.log(message);
-  };
-  private terminalOptions: TerminalOptions = {
-    shell: os.platform() === "win32" ? "powershell.exe" : "bash",
-    cols: 80,
-    rows: 24,
-    workdir: process.cwd(),
-    logger: this.defaultLogger,
   };
 
   /**
@@ -57,17 +46,6 @@ class Synapse {
         this.connectionListeners.onClose();
       };
     });
-  }
-
-  getTerminalOptions(): TerminalOptions {
-    return this.terminalOptions;
-  }
-
-  updateTerminalOptions(options: TerminalOptions): void {
-    this.terminalOptions = {
-      ...this.terminalOptions,
-      ...options,
-    };
   }
 
   private send(type: string, payload: Record<string, any> = {}): Promise<any> {
@@ -152,7 +130,7 @@ class Synapse {
   }
 
   /**
-   * Closes the WebSocket connection and terminates the terminal process
+   * Closes the WebSocket connection
    */
   disconnect(): void {
     if (this.ws) {

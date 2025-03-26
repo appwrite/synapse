@@ -1,5 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
+import { Synapse } from "../synapse";
 
 export type FileItem = {
   name: string;
@@ -12,9 +13,14 @@ export type FileOperationResult = {
 };
 
 export class Filesystem {
+  private synapse: Synapse;
   private logger: (message: string) => void;
 
-  constructor(logger: (message: string) => void = console.log) {
+  constructor(
+    synapse: Synapse,
+    logger: (message: string) => void = console.log,
+  ) {
+    this.synapse = synapse;
     this.logger = logger;
   }
 
