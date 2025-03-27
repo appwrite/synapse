@@ -32,7 +32,7 @@ Operating system gateway for remote serverless environments. Synapse provides a 
 ## Installation
 
 ```bash
-npm install synapse
+npm install @appwrite.io/synapse
 ```
 
 ## Usage
@@ -40,7 +40,7 @@ npm install synapse
 ### Basic Setup
 
 ```typescript
-import { Synapse, Terminal } from "synapse";
+import { Synapse, Terminal } from "@appwrite.io/synapse";
 
 // Initialize Synapse for WebSocket communication
 const synapse = new Synapse();
@@ -56,7 +56,7 @@ const terminal = new Terminal(synapse);
 
 ```typescript
 // Send commands to the terminal
-terminal.write("ls -la");
+terminal.createCommand("ls -la");
 
 // Handle terminal output
 terminal.onData((data) => {
@@ -64,7 +64,7 @@ terminal.onData((data) => {
 });
 
 // Resize terminal
-terminal.resize(80, 24);
+terminal.updateSize(80, 24);
 
 // Kill terminal
 terminal.kill();
