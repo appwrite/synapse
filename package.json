@@ -17,7 +17,6 @@
     "prepare": "npm run build",
     "prepublishOnly": "npm test && npm run lint"
   },
-  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/appwrite/synapse.git"
