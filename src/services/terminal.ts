@@ -10,8 +10,8 @@ export type TerminalOptions = {
 };
 
 export class Terminal {
-  private term: pty.IPty | null = null;
   private synapse: Synapse;
+  private term: pty.IPty | null = null;
   private onDataCallback: ((data: string) => void) | null = null;
 
   /**
@@ -49,15 +49,15 @@ export class Terminal {
    * @param cols - The number of columns
    * @param rows - The number of rows
    */
-  resize(cols: number, rows: number): void {
-    this.term?.resize(cols, rows);
+  updateSize(cols: number, rows: number): void {
+    this.term?.resize(Math.max(cols, 1), Math.max(rows, 1));
   }
 
   /**
    * Writes a command to the terminal
    * @param command - The command to write
    */
-  write(command: string): void {
+  createCommand(command: string): void {
     this.term?.write(command);
   }
 

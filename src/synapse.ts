@@ -18,35 +18,7 @@ class Synapse {
     onClose: (() => {}) as ConnectionCallback,
     onError: (() => {}) as ErrorCallback,
   };
-
-  /**
-   * Establishes a WebSocket connection to the specified URL and initializes the terminal
-   * @param url - The WebSocket server URL to connect to
-   * @returns Promise that resolves with the Synapse instance when connected
-   * @throws Error if WebSocket connection fails
-   */
-  connect(url: string): Promise<Synapse> {
-    return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(url);
-
-      this.ws.onopen = () => {
-        this.connectionListeners.onOpen();
-        resolve(this);
-      };
-
-      this.ws.onmessage = (event: WebSocket.MessageEvent) =>
-        this.handleMessage(event);
-
-      this.ws.onerror = () => {
-        this.connectionListeners.onError(new Error("WebSocket error occurred"));
-        reject(new Error("WebSocket error occurred"));
-      };
-
-      this.ws.onclose = () => {
-        this.connectionListeners.onClose();
-      };
-    });
-  }
+  logger: (message: string) => void = console.log;
 
   private send(
     type: string,
@@ -78,6 +50,43 @@ class Synapse {
     } catch (error) {
       console.error("Message parsing error:", error);
     }
+  }
+
+  /**
+   * Sets the logger function for the Synapse instance
+   * @param logger - The logger function to use
+   */
+  setLogger(logger: (message: string) => void): void {
+    this.logger = logger;
+  }
+
+  /**
+   * Establishes a WebSocket connection to the specified URL and initializes the terminal
+   * @param url - The WebSocket server URL to connect to
+   * @returns Promise that resolves with the Synapse instance when connected
+   * @throws Error if WebSocket connection fails
+   */
+  connect(url: string): Promise<Synapse> {
+    return new Promise((resolve, reject) => {
+      this.ws = new WebSocket(url);
+
+      this.ws.onopen = () => {
+        this.connectionListeners.onOpen();
+        resolve(this);
+      };
+
+      this.ws.onmessage = (event: WebSocket.MessageEvent) =>
+        this.handleMessage(event);
+
+      this.ws.onerror = () => {
+        this.connectionListeners.onError(new Error("WebSocket error occurred"));
+        reject(new Error("WebSocket error occurred"));
+      };
+
+      this.ws.onclose = () => {
+        this.connectionListeners.onClose();
+      };
+    });
   }
 
   /**

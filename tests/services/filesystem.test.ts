@@ -7,15 +7,17 @@ jest.mock("fs/promises");
 describe("Filesystem", () => {
   let filesystem: Filesystem;
   let mockSynapse: jest.Mocked<Synapse>;
-  let mockLogger: jest.Mock;
 
   beforeEach(() => {
-    mockSynapse = {
+    mockSynapse = jest.mocked({
+      logger: jest.fn(),
+      setLogger: jest.fn(),
       connect: jest.fn(),
+      disconnect: jest.fn(),
       sendCommand: jest.fn(),
-    } as any;
-    mockLogger = jest.fn();
-    filesystem = new Filesystem(mockSynapse, mockLogger);
+    } as unknown as Synapse);
+
+    filesystem = new Filesystem(mockSynapse);
   });
 
   describe("createFile", () => {

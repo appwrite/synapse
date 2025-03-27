@@ -14,23 +14,17 @@ export type FileOperationResult = {
 
 export class Filesystem {
   private synapse: Synapse;
-  private logger: (message: string) => void;
 
   /**
    * Creates a new Filesystem instance
    * @param synapse - The Synapse instance to use
-   * @param logger - The logger function to use (defaults to console.log)
    */
-  constructor(
-    synapse: Synapse,
-    logger: (message: string) => void = console.log,
-  ) {
+  constructor(synapse: Synapse) {
     this.synapse = synapse;
-    this.logger = logger;
   }
 
   private log(method: string, message: string): void {
-    this.logger(`[${method}] ${message}`);
+    this.synapse.logger(`[${method}] ${message}`);
   }
 
   /**

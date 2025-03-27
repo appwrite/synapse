@@ -1,4 +1,5 @@
 import * as os from "os";
+import { Synapse } from "../synapse";
 
 export type CPUTimes = {
   user: number;
@@ -24,11 +25,11 @@ export type SystemUsageData = {
   };
 };
 
-export class SystemService {
-  private logger: (message: string) => void;
+export class System {
+  private synapse: Synapse;
 
-  constructor(logger: (message: string) => void = console.log) {
-    this.logger = logger;
+  constructor(synapse: Synapse) {
+    this.synapse = synapse;
   }
 
   private calculateCPUUsage(startUsage: CPUTimes, endUsage: CPUTimes): number {
@@ -65,7 +66,7 @@ export class SystemService {
    */
   async getUsage(measurementInterval: number = 3000): Promise<SystemUsageData> {
     try {
-      this.logger("Starting system usage measurement");
+      this.synapse.logger("Starting system usage measurement");
 
       const startMeasurements = this.getCPUUsage();
       await new Promise((resolve) => setTimeout(resolve, measurementInterval));
@@ -82,7 +83,7 @@ export class SystemService {
 
       const [loadAvg1m, loadAvg5m, loadAvg15m] = os.loadavg();
 
-      this.logger("System usage measurement completed");
+      this.synapse.logger("System usage measurement completed");
 
       return {
         success: true,
@@ -102,7 +103,7 @@ export class SystemService {
         },
       };
     } catch (error) {
-      this.logger(
+      this.synapse.logger(
         `Error in getUsage: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;

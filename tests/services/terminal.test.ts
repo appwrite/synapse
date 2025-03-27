@@ -70,12 +70,12 @@ describe("Terminal", () => {
     });
 
     it("should handle resize operation", () => {
-      terminal.resize(100, 50);
+      terminal.updateSize(100, 50);
       expect(mockPty.resize).toHaveBeenCalledWith(100, 50);
     });
 
     it("should handle write operation", () => {
-      terminal.write("ls -la\n");
+      terminal.createCommand("ls -la\n");
       expect(mockPty.write).toHaveBeenCalledWith("ls -la\n");
     });
 

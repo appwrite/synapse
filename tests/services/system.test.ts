@@ -1,15 +1,23 @@
 import * as os from "os";
-import { SystemService } from "../../src/services/system";
+import { System } from "../../src/services/system";
+import { Synapse } from "../../src/synapse";
 
 jest.mock("os");
 
-describe("SystemService", () => {
-  let systemService: SystemService;
-  let mockLogger: jest.Mock;
+describe("System", () => {
+  let system: System;
+  let mockSynapse: jest.Mocked<Synapse>;
 
   beforeEach(() => {
-    mockLogger = jest.fn();
-    systemService = new SystemService(mockLogger);
+    mockSynapse = jest.mocked({
+      logger: jest.fn(),
+      setLogger: jest.fn(),
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      sendCommand: jest.fn(),
+    } as unknown as Synapse);
+
+    system = new System(mockSynapse);
   });
 
   describe("getUsage", () => {
@@ -31,7 +39,7 @@ describe("SystemService", () => {
       (os.freemem as jest.Mock).mockReturnValue(4000000000);
       (os.loadavg as jest.Mock).mockReturnValue([1.5, 1.0, 0.5]);
 
-      const result = await systemService.getUsage(100); // Shorter interval for testing
+      const result = await system.getUsage(100); // Shorter interval for testing
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveProperty("cpuCores", 1);
