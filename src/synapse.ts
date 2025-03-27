@@ -48,7 +48,7 @@ class Synapse {
         this.messageHandlers[message.type](message);
       }
     } catch (error) {
-      console.error("Message parsing error:", error);
+      this.logger(`Message parsing error: ${error}`);
     }
   }
 
