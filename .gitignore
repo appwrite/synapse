@@ -1,0 +1,18 @@
+# Build artifacts
+dist/
+
+# Dependencies
+node_modules/
+
+# Package lock files
+package-lock.json
+
+# TypeScript declaration files
+*.d.ts
+
+# Test coverage reports
+coverage/
+
+# Editor-specific files
+.vscode/
+.idea/
