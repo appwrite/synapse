@@ -32,6 +32,6 @@ jobs:
           npm run build
 
       - name: Publish
-        run: npm publish --tag ${{ steps.release_tag.outputs.tag }}
+        run: npm publish --tag ${{ steps.release_tag.outputs.tag }} --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
