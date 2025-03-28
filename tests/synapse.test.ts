@@ -141,4 +141,64 @@ describe("Synapse", () => {
       expect(handler).not.toHaveBeenCalled();
     });
   });
+
+  describe("send", () => {
+    it("should send messages with correct format and return promise with message payload", async () => {
+      const mockWs = {
+        onopen: null as unknown as (event: WebSocket.Event) => void,
+        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
+        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
+        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
+        readyState: WebSocket.OPEN,
+        send: jest.fn(),
+      };
+
+      (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
+      const connectPromise = synapse.connect("ws://localhost:8080");
+      mockWs.onopen!({} as WebSocket.Event);
+      await connectPromise;
+
+      const payload = { data: "test-data" };
+      const result = await synapse.send("test-type", payload);
+
+      expect(mockWs.send).toHaveBeenCalledTimes(1);
+      const sentMessage = JSON.parse(mockWs.send.mock.calls[0][0]);
+      expect(sentMessage).toEqual({
+        type: "test-type",
+        requestId: expect.any(String),
+        data: "test-data",
+      });
+      expect(result).toEqual({
+        type: "test-type",
+        requestId: expect.any(String),
+        data: "test-data",
+      });
+    });
+
+    it("should throw error when WebSocket is not connected", () => {
+      expect(() => synapse.send("test-type")).toThrow(
+        "WebSocket is not connected",
+      );
+    });
+
+    it("should throw error when WebSocket is not in OPEN state", async () => {
+      const mockWs = {
+        onopen: null as unknown as (event: WebSocket.Event) => void,
+        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
+        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
+        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
+        readyState: WebSocket.CLOSED,
+        send: jest.fn(),
+      };
+
+      (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
+      const connectPromise = synapse.connect("ws://localhost:8080");
+      mockWs.onopen!({} as WebSocket.Event);
+      await connectPromise;
+
+      expect(() => synapse.send("test-type")).toThrow(
+        "WebSocket is not connected",
+      );
+    });
+  });
 });

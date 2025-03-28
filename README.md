@@ -77,7 +77,7 @@ synapse.disconnect();
 
 ```typescript
 // File operations through Synapse's filesystem service
-import { Synapse, Filesystem } from "synapse";
+import { Synapse, Filesystem } from "@appwrite.io/synapse";
 
 const synapse = new Synapse();
 const filesystem = new Filesystem(synapse);
@@ -92,7 +92,7 @@ const { success, data } = await filesystem.getFolder("/path/to/dir");
 
 ```typescript
 // Get system usage statistics through Synapse's system service
-import { System } from "synapse";
+import { System } from "@appwrite.io/synapse";
 
 const system = new System(synapse);
 const { success, data } = await system.getUsage();
@@ -105,7 +105,7 @@ console.log("Load Average (1m):", data.loadAverage1m);
 
 ```typescript
 // Perform Git operations through Synapse's git service
-import { Synapse, Git } from "synapse";
+import { Synapse, Git } from "@appwrite.io/synapse";
 
 const synapse = new Synapse();
 const git = new Git(synapse);
