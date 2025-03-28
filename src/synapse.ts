@@ -9,6 +9,7 @@ export type MessagePayload = {
 export type MessageHandler = (message: MessagePayload) => void;
 export type ConnectionCallback = () => void;
 export type ErrorCallback = (error: Error) => void;
+export type Logger = (message: string) => void;
 
 class Synapse {
   private ws: WebSocket | null = null;
@@ -18,27 +19,7 @@ class Synapse {
     onClose: (() => {}) as ConnectionCallback,
     onError: (() => {}) as ErrorCallback,
   };
-  logger: (message: string) => void = console.log;
-
-  private send(
-    type: string,
-    payload: Record<string, unknown> = {},
-  ): Promise<MessagePayload> {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error("WebSocket is not connected");
-    }
-
-    const message: MessagePayload = {
-      type,
-      requestId: Date.now().toString(),
-      ...payload,
-    };
-
-    return new Promise((resolve) => {
-      this.ws!.send(JSON.stringify(message));
-      resolve(message);
-    });
-  }
+  private logger: Logger = console.log;
 
   private handleMessage(event: WebSocket.MessageEvent): void {
     try {
@@ -50,14 +31,6 @@ class Synapse {
     } catch (error) {
       this.logger(`Message parsing error: ${error}`);
     }
-  }
-
-  /**
-   * Sets the logger function for the Synapse instance
-   * @param logger - The logger function to use
-   */
-  setLogger(logger: (message: string) => void): void {
-    this.logger = logger;
   }
 
   /**
@@ -86,6 +59,41 @@ class Synapse {
       this.ws.onclose = () => {
         this.connectionListeners.onClose();
       };
+    });
+  }
+
+  /**
+   * Sets the logger function for the Synapse instance
+   * @param logger - The logger function to use
+   */
+  setLogger(logger: Logger): void {
+    this.logger = logger;
+  }
+
+  /**
+   * Sends a message to the WebSocket server
+   * @param type - The type of message to send
+   * @param payload - The payload of the message
+   * @returns A promise that resolves with the message payload
+   * @throws Error if WebSocket is not connected
+   */
+  send(
+    type: string,
+    payload: Record<string, unknown> = {},
+  ): Promise<MessagePayload> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error("WebSocket is not connected");
+    }
+
+    const message: MessagePayload = {
+      type,
+      requestId: Date.now().toString(),
+      ...payload,
+    };
+
+    return new Promise((resolve) => {
+      this.ws!.send(JSON.stringify(message));
+      resolve(message);
     });
   }
 
