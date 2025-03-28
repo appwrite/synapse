@@ -19,7 +19,7 @@ class Synapse {
     onClose: (() => {}) as ConnectionCallback,
     onError: (() => {}) as ErrorCallback,
   };
-  private logger: Logger = console.log;
+  logger: Logger = console.log;
 
   private handleMessage(event: WebSocket.MessageEvent): void {
     try {
