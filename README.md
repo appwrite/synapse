@@ -43,10 +43,10 @@ npm install @appwrite.io/synapse
 import { Synapse, Terminal } from "@appwrite.io/synapse";
 
 // Initialize Synapse for WebSocket communication
-const synapse = new Synapse();
+const synapse = new Synapse("localhost", 8080);
 
 // Connect to WebSocket server
-await synapse.connect("ws://your-server-url");
+await synapse.connect("/terminal");
 
 // Create terminal instance with Synapse
 const terminal = new Terminal(synapse);
