@@ -40,8 +40,9 @@ class Synapse {
         this.connectionListeners.onClose();
       };
 
-      ws.onerror = () => {
-        this.connectionListeners.onError(new Error("WebSocket error occurred"));
+      ws.onerror = (error: WebSocket.ErrorEvent) => {
+        const errorMessage = `WebSocket error: ${error.message || "Unknown error"}. Connection to ${this.host}:${this.port} failed.`;
+        this.connectionListeners.onError(new Error(errorMessage));
       };
 
       this.connectionListeners.onOpen();
@@ -56,7 +57,11 @@ class Synapse {
         this.messageHandlers[message.type](message);
       }
     } catch (error) {
-      this.logger(`Message parsing error: ${error}`);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown parsing error";
+      this.logger(
+        `Message parsing error: ${errorMessage}. Raw message: ${event.data}`,
+      );
     }
   }
 
@@ -83,9 +88,10 @@ class Synapse {
       this.ws.onmessage = (event: WebSocket.MessageEvent) =>
         this.handleMessage(event);
 
-      this.ws.onerror = () => {
-        this.connectionListeners.onError(new Error("WebSocket error occurred"));
-        reject(new Error("WebSocket error occurred"));
+      this.ws.onerror = (error: WebSocket.ErrorEvent) => {
+        const errorMessage = `WebSocket error: ${error.message || "Unknown error"}. Failed to connect to ${url}`;
+        this.connectionListeners.onError(new Error(errorMessage));
+        reject(new Error(errorMessage));
       };
 
       this.ws.onclose = () => {

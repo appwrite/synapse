@@ -58,7 +58,9 @@ describe("Synapse", () => {
         error: new Error("Connection failed"),
       } as WebSocket.ErrorEvent);
 
-      await expect(connectPromise).rejects.toThrow("WebSocket error occurred");
+      await expect(connectPromise).rejects.toThrow(
+        "WebSocket error: Unknown error. Failed to connect to ws://localhost:8080/terminal",
+      );
     });
   });
 
@@ -269,7 +271,9 @@ describe("Synapse", () => {
 
       mockWs.onerror!({} as WebSocket.ErrorEvent);
       expect(onErrorMock).toHaveBeenCalledWith(
-        new Error("WebSocket error occurred"),
+        new Error(
+          "WebSocket error: Unknown error. Connection to localhost:3000 failed.",
+        ),
       );
     });
   });
