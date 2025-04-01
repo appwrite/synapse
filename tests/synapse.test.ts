@@ -5,6 +5,15 @@ import { Synapse } from "../src/synapse";
 
 jest.mock("ws");
 
+const createMockWebSocket = (options: { readyState?: number } = {}) => ({
+  onopen: null as unknown as (event: WebSocket.Event) => void,
+  onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
+  onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
+  onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
+  readyState: options.readyState ?? WebSocket.OPEN,
+  send: jest.fn(),
+});
+
 describe("Synapse", () => {
   let synapse: Synapse;
 
@@ -15,14 +24,7 @@ describe("Synapse", () => {
 
   describe("connect", () => {
     it("should establish websocket connection successfully", async () => {
-      const mockWs = {
-        onopen: null as unknown as (event: WebSocket.Event) => void,
-        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-      };
+      const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
 
@@ -35,14 +37,7 @@ describe("Synapse", () => {
 
     it("should use default host and port when not provided", async () => {
       const defaultSynapse = new Synapse();
-      const mockWs = {
-        onopen: null as unknown as (event: WebSocket.Event) => void,
-        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-      };
+      const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
 
@@ -54,12 +49,7 @@ describe("Synapse", () => {
     });
 
     it("should reject on connection error", async () => {
-      const mockWs = {
-        onopen: null as unknown as (event: WebSocket.Event) => void,
-        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-      };
+      const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
 
@@ -77,14 +67,7 @@ describe("Synapse", () => {
       const handler = jest.fn();
       synapse.onMessageType("test", handler);
 
-      const mockWs = {
-        onopen: null as unknown as (event: WebSocket.Event) => void,
-        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-      };
+      const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
       const connectPromise = synapse.connect("/terminal");
@@ -116,14 +99,7 @@ describe("Synapse", () => {
       synapse.onMessageType("test", testHandler);
       synapse.onMessageType("other", otherHandler);
 
-      const mockWs = {
-        onopen: null as unknown as (event: WebSocket.Event) => void,
-        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-      };
+      const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
       const connectPromise = synapse.connect("/terminal");
@@ -143,14 +119,7 @@ describe("Synapse", () => {
       const handler = jest.fn();
       synapse.onMessageType("test", handler);
 
-      const mockWs = {
-        onopen: null as unknown as (event: WebSocket.Event) => void,
-        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-      };
+      const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
       const connectPromise = synapse.connect("/terminal");
@@ -167,14 +136,7 @@ describe("Synapse", () => {
 
   describe("send", () => {
     it("should send messages with correct format and return promise with message payload", async () => {
-      const mockWs = {
-        onopen: null as unknown as (event: WebSocket.Event) => void,
-        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-      };
+      const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
       const connectPromise = synapse.connect("/terminal");
@@ -205,14 +167,7 @@ describe("Synapse", () => {
     });
 
     it("should throw error when WebSocket is not in OPEN state", async () => {
-      const mockWs = {
-        onopen: null as unknown as (event: WebSocket.Event) => void,
-        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-        readyState: WebSocket.CLOSED,
-        send: jest.fn(),
-      };
+      const mockWs = createMockWebSocket({ readyState: WebSocket.CLOSED });
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
       const connectPromise = synapse.connect("/terminal");
@@ -235,14 +190,7 @@ describe("Synapse", () => {
 
       const mockSocket = {} as Socket;
       const mockHead = Buffer.alloc(0);
-      const mockWs = {
-        on: jest.fn(),
-        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-      } as unknown as WebSocket;
+      const mockWs = createMockWebSocket();
 
       const mockHandleUpgrade = jest.fn((req, socket, head, cb) => {
         cb(mockWs);
@@ -279,14 +227,7 @@ describe("Synapse", () => {
       const mockSocket = {} as Socket;
       const mockHead = Buffer.alloc(0);
 
-      const mockWs = {
-        on: jest.fn(),
-        onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-        onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-        onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-      } as unknown as WebSocket;
+      const mockWs = createMockWebSocket();
 
       const mockHandleUpgrade = jest.fn((req, socket, head, cb) => {
         cb(mockWs);
