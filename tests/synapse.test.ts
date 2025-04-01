@@ -12,6 +12,7 @@ const createMockWebSocket = (options: { readyState?: number } = {}) => ({
   onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
   readyState: options.readyState ?? WebSocket.OPEN,
   send: jest.fn(),
+  close: jest.fn(),
 });
 
 describe("Synapse", () => {
@@ -20,6 +21,15 @@ describe("Synapse", () => {
   beforeEach(() => {
     synapse = new Synapse("localhost", 8080);
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    synapse.disconnect();
+    jest.clearAllTimers();
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
   });
 
   describe("connect", () => {
@@ -207,6 +217,7 @@ describe("Synapse", () => {
             callback(mockWs);
           }
         }),
+        close: jest.fn(),
       } as unknown as WebSocketServer;
 
       jest.mocked(WebSocketServer).mockImplementation(() => mockWss);
@@ -248,6 +259,7 @@ describe("Synapse", () => {
         handleUpgrade: mockHandleUpgrade,
         emit: mockEmit,
         on: jest.fn(),
+        close: jest.fn(),
       } as unknown as WebSocketServer;
 
       jest.mocked(WebSocketServer).mockImplementation(() => mockWss);

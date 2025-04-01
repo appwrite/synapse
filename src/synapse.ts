@@ -22,6 +22,14 @@ class Synapse {
     onClose: (() => {}) as ConnectionCallback,
     onError: (() => {}) as ErrorCallback,
   };
+
+  private isReconnecting = false;
+  private maxReconnectAttempts = 5;
+  private reconnectAttempts = 0;
+  private reconnectInterval = 3000;
+  private lastPath: string | null = null;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+
   logger: Logger = console.log;
   private host: string;
   private port: number;
@@ -31,22 +39,70 @@ class Synapse {
     this.port = port;
     this.wss = new WebSocketServer({ noServer: true });
     this.wss.on("connection", (ws: WebSocket) => {
-      this.ws = ws;
-
-      ws.onmessage = (event: WebSocket.MessageEvent) =>
-        this.handleMessage(event);
-
-      ws.onclose = () => {
-        this.connectionListeners.onClose();
-      };
-
-      ws.onerror = (error: WebSocket.ErrorEvent) => {
-        const errorMessage = `WebSocket error: ${error.message || "Unknown error"}. Connection to ${this.host}:${this.port} failed.`;
-        this.connectionListeners.onError(new Error(errorMessage));
-      };
-
-      this.connectionListeners.onOpen();
+      this.setupWebSocket(ws);
     });
+  }
+
+  private setupWebSocket(ws: WebSocket): void {
+    this.ws = ws;
+    this.reconnectAttempts = 0;
+
+    ws.onmessage = (event) => this.handleMessage(event);
+
+    ws.onclose = () => {
+      this.ws = null;
+      this.connectionListeners.onClose();
+      this.attemptReconnect();
+    };
+
+    ws.onerror = (error) => {
+      const errorMessage = `WebSocket error: ${error.message || "Unknown error"}. Connection to ${this.host}:${this.port} failed.`;
+      this.connectionListeners.onError(new Error(errorMessage));
+    };
+
+    this.connectionListeners.onOpen();
+  }
+
+  private attemptReconnect() {
+    if (
+      this.isReconnecting ||
+      this.reconnectAttempts >= this.maxReconnectAttempts
+    ) {
+      return;
+    }
+
+    this.isReconnecting = true;
+    this.reconnectAttempts++;
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.logger(
+        `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`,
+      );
+      this.connect(this.lastPath || "/")
+        .then(() => {
+          this.isReconnecting = false;
+          this.logger("Reconnection successful");
+        })
+        .catch((error) => {
+          this.isReconnecting = false;
+          this.logger(`Reconnection failed: ${error.message}`);
+          if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.attemptReconnect();
+          }
+        });
+    }, this.reconnectInterval);
+  }
+
+  /**
+   * Cancels the reconnection process
+   */
+  public cancelReconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    this.isReconnecting = false;
+    this.reconnectAttempts = this.maxReconnectAttempts;
   }
 
   private handleMessage(event: WebSocket.MessageEvent): void {
@@ -76,27 +132,45 @@ class Synapse {
    * @throws Error if WebSocket connection fails
    */
   connect(path: string): Promise<Synapse> {
+    this.lastPath = path;
     const url = this.buildWebSocketUrl(path);
+
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(url);
+      try {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          resolve(this);
+          return;
+        }
 
-      this.ws.onopen = () => {
-        this.connectionListeners.onOpen();
-        resolve(this);
-      };
+        this.ws = new WebSocket(url);
 
-      this.ws.onmessage = (event: WebSocket.MessageEvent) =>
-        this.handleMessage(event);
+        this.ws.onopen = () => {
+          this.reconnectAttempts = 0;
+          this.connectionListeners.onOpen();
+          resolve(this);
+        };
 
-      this.ws.onerror = (error: WebSocket.ErrorEvent) => {
-        const errorMessage = `WebSocket error: ${error.message || "Unknown error"}. Failed to connect to ${url}`;
-        this.connectionListeners.onError(new Error(errorMessage));
-        reject(new Error(errorMessage));
-      };
+        this.ws.onmessage = (event: WebSocket.MessageEvent) =>
+          this.handleMessage(event);
 
-      this.ws.onclose = () => {
-        this.connectionListeners.onClose();
-      };
+        this.ws.onerror = (error: WebSocket.ErrorEvent) => {
+          const errorMessage = `WebSocket error: ${error.message || "Unknown error"}. Failed to connect to ${url}`;
+          this.connectionListeners.onError(new Error(errorMessage));
+          reject(new Error(errorMessage));
+        };
+
+        this.ws.onclose = () => {
+          this.connectionListeners.onClose();
+        };
+      } catch (error) {
+        reject(
+          new Error(
+            `Failed to create WebSocket connection: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          ),
+        );
+      }
     });
   }
 
@@ -138,9 +212,10 @@ class Synapse {
   /**
    * Sends a command to the terminal for execution
    * @param command - The command string to execute
+   * @returns A promise that resolves with the message payload
    */
-  sendCommand(command: string): void {
-    this.send("terminal", {
+  sendCommand(command: string): Promise<MessagePayload> {
+    return this.send("terminal", {
       operation: "createCommand",
       params: { command },
     });
@@ -200,11 +275,21 @@ class Synapse {
   }
 
   /**
+   * Checks if the WebSocket connection is currently open and ready
+   * @returns {boolean} True if the connection is open and ready
+   */
+  isConnected() {
+    return this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /**
    * Closes the WebSocket connection
    */
   disconnect(): void {
+    this.cancelReconnect();
     if (this.ws) {
       this.ws.close();
+      this.ws = null;
     }
     this.wss.close();
   }
