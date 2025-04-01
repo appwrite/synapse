@@ -1,4 +1,6 @@
-import WebSocket from "ws";
+import { IncomingMessage } from "http";
+import { Socket } from "net";
+import WebSocket, { WebSocketServer } from "ws";
 
 export type MessagePayload = {
   type: string;
@@ -13,6 +15,7 @@ export type Logger = (message: string) => void;
 
 class Synapse {
   private ws: WebSocket | null = null;
+  private wss: WebSocketServer;
   private messageHandlers: Record<string, MessageHandler> = {};
   private connectionListeners = {
     onOpen: (() => {}) as ConnectionCallback,
@@ -20,6 +23,30 @@ class Synapse {
     onError: (() => {}) as ErrorCallback,
   };
   logger: Logger = console.log;
+  private host: string;
+  private port: number;
+
+  constructor(host: string = "localhost", port: number = 3000) {
+    this.host = host;
+    this.port = port;
+    this.wss = new WebSocketServer({ noServer: true });
+    this.wss.on("connection", (ws: WebSocket) => {
+      this.ws = ws;
+
+      ws.onmessage = (event: WebSocket.MessageEvent) =>
+        this.handleMessage(event);
+
+      ws.onclose = () => {
+        this.connectionListeners.onClose();
+      };
+
+      ws.onerror = () => {
+        this.connectionListeners.onError(new Error("WebSocket error occurred"));
+      };
+
+      this.connectionListeners.onOpen();
+    });
+  }
 
   private handleMessage(event: WebSocket.MessageEvent): void {
     try {
@@ -33,13 +60,18 @@ class Synapse {
     }
   }
 
+  private buildWebSocketUrl(path: string): string {
+    return `ws://${this.host}:${this.port}${path}`;
+  }
+
   /**
    * Establishes a WebSocket connection to the specified URL and initializes the terminal
-   * @param url - The WebSocket server URL to connect to
+   * @param path - The WebSocket endpoint path (e.g. '/terminal')
    * @returns Promise that resolves with the Synapse instance when connected
    * @throws Error if WebSocket connection fails
    */
-  connect(url: string): Promise<Synapse> {
+  connect(path: string): Promise<Synapse> {
+    const url = this.buildWebSocketUrl(path);
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(url);
 
@@ -150,12 +182,25 @@ class Synapse {
   }
 
   /**
+   * Handles HTTP upgrade requests to upgrade the connection to WebSocket
+   * @param req - The HTTP request
+   * @param socket - The network socket
+   * @param head - The first packet of the upgraded stream
+   */
+  handleUpgrade(req: IncomingMessage, socket: Socket, head: Buffer): void {
+    this.wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
+      this.wss.emit("connection", ws, req);
+    });
+  }
+
+  /**
    * Closes the WebSocket connection
    */
   disconnect(): void {
     if (this.ws) {
       this.ws.close();
     }
+    this.wss.close();
   }
 }
 
