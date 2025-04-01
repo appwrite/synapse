@@ -29,6 +29,12 @@ Operating system gateway for remote serverless environments. Synapse provides a 
   - Commit and push changes
   - Pull and merge remote changes
 
+- 📝 Code Style Management
+
+  - Linting and formatting
+  - Error detection and correction
+  - Code formatting options
+
 ## Installation
 
 ```bash
@@ -125,6 +131,43 @@ await git.commit("feat: add new features");
 // Pull and push changes
 await git.pull();
 await git.push();
+```
+
+### Code Style Management
+
+```typescript
+// Lint and format code
+import { Synapse, CodeStyle } from "@appwrite.io/synapse";
+
+const synapse = new Synapse();
+const codeStyle = new CodeStyle(synapse);
+
+// Format code with specific options
+const code = `function hello(name) {
+return "Hello, " + name;
+}`;
+
+const formatResult = await codeStyle.format(code, {
+  language: "javascript",
+  indent: 2,
+  singleQuote: true,
+  semi: true,
+});
+
+console.log("Formatted code:", formatResult.data);
+
+// Lint code for potential issues
+const lintResult = await codeStyle.lint(code, {
+  language: "javascript",
+  rules: {
+    semi: "error",
+    "no-unused-vars": "warn",
+  },
+});
+
+if (lintResult.issues.length > 0) {
+  console.log("Linting issues found:", lintResult.issues);
+}
 ```
 
 ### Event Handling
