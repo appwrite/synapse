@@ -1,21 +1,38 @@
 import { jest } from "@jest/globals";
 import { spawn } from "child_process";
+import * as fs from "fs";
 import { Git, Synapse } from "../../src";
 
 jest.mock("child_process", () => ({
   spawn: jest.fn(),
 }));
 
+jest.mock("fs", () => {
+  const actual = jest.requireActual("fs") as typeof fs;
+  return {
+    ...actual,
+    existsSync: jest.fn(),
+    statSync: jest.fn(),
+  };
+});
+
 describe("Git Service", () => {
   let git: Git;
   let mockSpawn: jest.Mock;
   let mockSynapse: jest.Mocked<Synapse>;
+  const mockWorkingDir = "/workspace/synapse";
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockSynapse = {} as jest.Mocked<Synapse>;
+    // Mock process.cwd
+    jest.spyOn(process, "cwd").mockReturnValue(mockWorkingDir);
 
+    // Mock fs.existsSync to return false by default (no git repo)
+    (fs.existsSync as jest.Mock).mockReturnValue(false);
+    (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
+
+    mockSynapse = {} as jest.Mocked<Synapse>;
     mockSpawn = spawn as jest.Mock;
     git = new Git(mockSynapse);
   });
@@ -55,6 +72,69 @@ describe("Git Service", () => {
     return mockChildProcess;
   };
 
+  describe("init", () => {
+    it("should initialize a new git repository", async () => {
+      setupMockProcess("Initialized empty Git repository");
+
+      const result = await git.init();
+
+      expect(result).toEqual({
+        success: true,
+        data: "Initialized empty Git repository",
+      });
+      expect(mockSpawn).toHaveBeenCalledWith("git", ["init"], {
+        cwd: mockWorkingDir,
+      });
+    });
+
+    it("should handle error when repository already exists", async () => {
+      // Mock fs.existsSync to return true (git repo exists)
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+
+      const result = await git.init();
+
+      expect(result).toEqual({
+        success: false,
+        data: "Git repository already exists in this directory",
+      });
+    });
+  });
+
+  describe("addRemote", () => {
+    it("should add a remote repository", async () => {
+      setupMockProcess("");
+
+      const result = await git.addRemote(
+        "origin",
+        "https://github.com/user/repo.git",
+      );
+
+      expect(result).toEqual({
+        success: true,
+        data: "",
+      });
+      expect(mockSpawn).toHaveBeenCalledWith(
+        "git",
+        ["remote", "add", "origin", "https://github.com/user/repo.git"],
+        { cwd: mockWorkingDir },
+      );
+    });
+
+    it("should handle error when remote already exists", async () => {
+      setupMockProcess("", "remote origin already exists", 128);
+
+      const result = await git.addRemote(
+        "origin",
+        "https://github.com/user/repo.git",
+      );
+
+      expect(result).toEqual({
+        success: false,
+        data: "remote origin already exists",
+      });
+    });
+  });
+
   describe("getCurrentBranch", () => {
     it("should return current branch name", async () => {
       setupMockProcess("main\n");
@@ -65,11 +145,11 @@ describe("Git Service", () => {
         success: true,
         data: "main",
       });
-      expect(mockSpawn).toHaveBeenCalledWith("git", [
-        "rev-parse",
-        "--abbrev-ref",
-        "HEAD",
-      ]);
+      expect(mockSpawn).toHaveBeenCalledWith(
+        "git",
+        ["rev-parse", "--abbrev-ref", "HEAD"],
+        { cwd: mockWorkingDir },
+      );
     });
 
     it("should handle error when getting current branch", async () => {
@@ -96,7 +176,9 @@ describe("Git Service", () => {
         success: true,
         data: statusOutput,
       });
-      expect(mockSpawn).toHaveBeenCalledWith("git", ["status"]);
+      expect(mockSpawn).toHaveBeenCalledWith("git", ["status"], {
+        cwd: mockWorkingDir,
+      });
     });
 
     it("should handle error when repository is not initialized", async () => {
@@ -121,11 +203,11 @@ describe("Git Service", () => {
         success: true,
         data: "",
       });
-      expect(mockSpawn).toHaveBeenCalledWith("git", [
-        "add",
-        "file1.txt",
-        "file2.txt",
-      ]);
+      expect(mockSpawn).toHaveBeenCalledWith(
+        "git",
+        ["add", "file1.txt", "file2.txt"],
+        { cwd: mockWorkingDir },
+      );
     });
 
     it("should handle error when adding non-existent files", async () => {
@@ -155,11 +237,11 @@ describe("Git Service", () => {
         success: true,
         data: commitOutput,
       });
-      expect(mockSpawn).toHaveBeenCalledWith("git", [
-        "commit",
-        "-m",
-        "test commit",
-      ]);
+      expect(mockSpawn).toHaveBeenCalledWith(
+        "git",
+        ["commit", "-m", "test commit"],
+        { cwd: mockWorkingDir },
+      );
     });
 
     it("should handle error when there are no changes to commit", async () => {
@@ -184,7 +266,9 @@ describe("Git Service", () => {
         success: true,
         data: "Already up to date.",
       });
-      expect(mockSpawn).toHaveBeenCalledWith("git", ["pull"]);
+      expect(mockSpawn).toHaveBeenCalledWith("git", ["pull"], {
+        cwd: mockWorkingDir,
+      });
     });
 
     it("should handle error when there is no remote configured", async () => {
@@ -209,7 +293,9 @@ describe("Git Service", () => {
         success: true,
         data: "Everything up-to-date",
       });
-      expect(mockSpawn).toHaveBeenCalledWith("git", ["push"]);
+      expect(mockSpawn).toHaveBeenCalledWith("git", ["push"], {
+        cwd: mockWorkingDir,
+      });
     });
 
     it("should handle error when there is no upstream branch", async () => {
