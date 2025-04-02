@@ -4,32 +4,32 @@ Operating system gateway for remote serverless environments. Synapse provides a 
 
 ## Features
 
-- 🖥️ Terminal Management
+- 🖥️ Terminal management
 
   - Remote terminal session control
   - Command execution and output streaming
   - Terminal customization options
 
-- 📂 File System Operations
+- 📂 File system operations
 
   - Complete CRUD operations for files and directories
   - Path and directory management
   - File system navigation and manipulation
 
-- 📊 System Monitoring
+- 📊 System monitoring
 
   - Real-time CPU and memory metrics
   - System load monitoring
   - Performance statistics
 
-- 📦 Git Operations
+- 📦 Git operations
 
   - Git repository management
   - Branch operations
   - Commit and push changes
   - Pull and merge remote changes
 
-- 📝 Code Style Management
+- 📝 Code style management
 
   - Linting and formatting
   - Error detection and correction
@@ -43,7 +43,7 @@ npm install @appwrite.io/synapse
 
 ## Usage
 
-### Basic Setup
+### Basic setup
 
 ```typescript
 import { Synapse, Terminal } from "@appwrite.io/synapse";
@@ -58,7 +58,7 @@ await synapse.connect("/");
 const terminal = new Terminal(synapse);
 ```
 
-### Terminal Operations
+### Terminal operations
 
 ```typescript
 // Send commands to the terminal
@@ -79,7 +79,7 @@ terminal.kill();
 synapse.disconnect();
 ```
 
-### File System Operations
+### File system operations
 
 ```typescript
 // File operations through Synapse's filesystem service
@@ -94,7 +94,7 @@ const { success, data } = await filesystem.getFile("/path/to/file.txt");
 const { success, data } = await filesystem.getFolder("/path/to/dir");
 ```
 
-### System Monitoring
+### System monitoring
 
 ```typescript
 // Get system usage statistics through Synapse's system service
@@ -107,7 +107,7 @@ console.log("Memory Usage:", data.memoryUsagePercent + "%");
 console.log("Load Average (1m):", data.loadAverage1m);
 ```
 
-### Git Operations
+### Git operations
 
 ```typescript
 // Perform Git operations through Synapse's git service
@@ -133,7 +133,7 @@ await git.pull();
 await git.push();
 ```
 
-### Code Style Management
+### Code style management
 
 ```typescript
 // Lint and format code
@@ -170,7 +170,7 @@ if (lintResult.issues.length > 0) {
 }
 ```
 
-### Event Handling
+### Event handling
 
 ```typescript
 synapse
