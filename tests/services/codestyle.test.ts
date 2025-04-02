@@ -186,8 +186,14 @@ describe("CodeStyle", () => {
       expect(MockESLint).toHaveBeenCalledWith({
         baseConfig: {
           parser: "@typescript-eslint/parser",
+          parserOptions: {
+            ecmaVersion: 2020,
+            sourceType: "module",
+          },
           rules: customRules,
         },
+        useEslintrc: false,
+        resolvePluginsRelativeTo: "/workspace/synapse/src/services",
       });
     });
 

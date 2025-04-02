@@ -99,8 +99,14 @@ export class CodeStyle {
     const eslintOptions = {
       baseConfig: {
         parser: "@typescript-eslint/parser",
+        parserOptions: {
+          ecmaVersion: 2020,
+          sourceType: "module",
+        },
         rules: options.rules || {},
       },
+      useEslintrc: false,
+      resolvePluginsRelativeTo: __dirname,
     };
 
     const linter = new ESLint(eslintOptions);

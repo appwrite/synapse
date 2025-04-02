@@ -1,6 +1,6 @@
 # Synapse
 
-Operating system gateway for remote serverless environments. Synapse provides a WebSocket-based interface to interact with terminal sessions, manage files, and monitor system resources remotely.
+Operating system gateway for remote serverless environments. Synapse provides a WebSocket-based interface to interact with terminal sessions, manage files, monitor system resources, perform Git operations, and more.
 
 ## Features
 
