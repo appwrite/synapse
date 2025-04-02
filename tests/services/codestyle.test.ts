@@ -128,8 +128,8 @@ describe("CodeStyle", () => {
       const result = await codeStyle.lint(input, { language: "javascript" });
 
       expect(result.success).toBe(true);
-      expect(result.issues).toHaveLength(1);
-      expect(result.issues[0]).toEqual({
+      expect(result.data.issues).toHaveLength(1);
+      expect(result.data.issues[0]).toEqual({
         line: 1,
         column: 1,
         severity: "error",
@@ -181,8 +181,8 @@ describe("CodeStyle", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.issues).toHaveLength(1);
-      expect(result.issues[0].rule).toBe("prefer-const");
+      expect(result.data.issues).toHaveLength(1);
+      expect(result.data.issues[0].rule).toBe("prefer-const");
       expect(MockESLint).toHaveBeenCalledWith({
         overrideConfig: {
           languageOptions: {
@@ -231,7 +231,7 @@ describe("CodeStyle", () => {
       const result = await codeStyle.lint(input, { language: "javascript" });
 
       expect(result.success).toBe(true);
-      expect(result.issues[0].severity).toBe("warning");
+      expect(result.data.issues[0].severity).toBe("warning");
     });
   });
 });

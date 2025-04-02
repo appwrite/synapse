@@ -1,6 +1,11 @@
 import { spawn } from "child_process";
 import { Synapse } from "../synapse";
 
+export type GitOperationResult = {
+  success: boolean;
+  data: string;
+};
+
 export class Git {
   private synapse: Synapse;
 
@@ -13,8 +18,8 @@ export class Git {
    * @param args - The arguments to pass to the git command
    * @returns The output of the git command
    */
-  private async execute(args: string[]): Promise<string> {
-    return new Promise((resolve, reject) => {
+  private async execute(args: string[]): Promise<GitOperationResult> {
+    return new Promise((resolve) => {
       const git = spawn("git", args);
       let output = "";
       let errorOutput = "";
@@ -29,16 +34,19 @@ export class Git {
 
       git.on("close", (code) => {
         if (code !== 0) {
-          reject(new Error(`Git error: ${errorOutput}`));
+          resolve({
+            success: false,
+            data: errorOutput.trim() || "Git command failed",
+          });
         } else {
-          resolve(output.trim());
+          resolve({ success: true, data: output.trim() });
         }
       });
     });
   }
 
-  async init() {
-    await this.execute(["init"]);
+  async init(): Promise<GitOperationResult> {
+    return this.execute(["init"]);
   }
 
   /**
@@ -47,7 +55,7 @@ export class Git {
    * @param url - The URL of the remote repository
    * @returns The output of the git remote add command
    */
-  async addRemote(name: string, url: string): Promise<string> {
+  async addRemote(name: string, url: string): Promise<GitOperationResult> {
     return this.execute(["remote", "add", name, url]);
   }
 
@@ -55,7 +63,7 @@ export class Git {
    * Get the current branch name
    * @returns The current branch name
    */
-  async getCurrentBranch(): Promise<string> {
+  async getCurrentBranch(): Promise<GitOperationResult> {
     return this.execute(["rev-parse", "--abbrev-ref", "HEAD"]);
   }
 
@@ -63,7 +71,7 @@ export class Git {
    * Get the status of the repository
    * @returns The status of the repository
    */
-  async status(): Promise<string> {
+  async status(): Promise<GitOperationResult> {
     return this.execute(["status"]);
   }
 
@@ -72,7 +80,7 @@ export class Git {
    * @param files - The files to add to staging
    * @returns The output of the git add command
    */
-  async add(files: string[]): Promise<string> {
+  async add(files: string[]): Promise<GitOperationResult> {
     return this.execute(["add", ...files]);
   }
 
@@ -81,7 +89,7 @@ export class Git {
    * @param message - The commit message
    * @returns The output of the git commit command
    */
-  async commit(message: string): Promise<string> {
+  async commit(message: string): Promise<GitOperationResult> {
     return this.execute(["commit", "-m", message]);
   }
 
@@ -89,7 +97,7 @@ export class Git {
    * Pull changes from remote
    * @returns The output of the git pull command
    */
-  async pull(): Promise<string> {
+  async pull(): Promise<GitOperationResult> {
     return this.execute(["pull"]);
   }
 
@@ -97,7 +105,7 @@ export class Git {
    * Push changes to remote
    * @returns The output of the git push command
    */
-  async push(): Promise<string> {
+  async push(): Promise<GitOperationResult> {
     return this.execute(["push"]);
   }
 }

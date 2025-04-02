@@ -23,13 +23,15 @@ export interface FormatResult {
 
 export interface LintResult {
   success: boolean;
-  issues: Array<{
-    line: number;
-    column: number;
-    severity: "error" | "warning";
-    rule: string;
-    message: string;
-  }>;
+  data: {
+    issues: Array<{
+      line: number;
+      column: number;
+      severity: "error" | "warning";
+      rule: string;
+      message: string;
+    }>;
+  };
 }
 
 export class CodeStyle {
@@ -112,15 +114,17 @@ export class CodeStyle {
 
     return {
       success: true,
-      issues: eslintResult.flatMap((result) =>
-        result.messages.map((message) => ({
-          line: message.line,
-          column: message.column,
-          severity: message.severity === 2 ? "error" : "warning",
-          rule: message.ruleId || "",
-          message: message.message,
-        })),
-      ),
+      data: {
+        issues: eslintResult.flatMap((result) =>
+          result.messages.map((message) => ({
+            line: message.line,
+            column: message.column,
+            severity: message.severity === 2 ? "error" : "warning",
+            rule: message.ruleId || "",
+            message: message.message,
+          })),
+        ),
+      },
     };
   }
 }
