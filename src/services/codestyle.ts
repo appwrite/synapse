@@ -97,17 +97,15 @@ export class CodeStyle {
    */
   async lint(code: string, options: LintOptions): Promise<LintResult> {
     const eslintOptions = {
-      baseConfig: {
-        parser: "@typescript-eslint/parser",
-        parserOptions: {
+      overrideConfig: {
+        languageOptions: {
           ecmaVersion: 2020,
           sourceType: "module",
         },
         rules: options.rules || {},
       },
-      useEslintrc: false,
-      resolvePluginsRelativeTo: __dirname,
-    };
+      overrideConfigFile: true,
+    } as ESLint.Options;
 
     const linter = new ESLint(eslintOptions);
     const eslintResult = await linter.lintText(code);

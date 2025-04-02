@@ -184,16 +184,14 @@ describe("CodeStyle", () => {
       expect(result.issues).toHaveLength(1);
       expect(result.issues[0].rule).toBe("prefer-const");
       expect(MockESLint).toHaveBeenCalledWith({
-        baseConfig: {
-          parser: "@typescript-eslint/parser",
-          parserOptions: {
+        overrideConfig: {
+          languageOptions: {
             ecmaVersion: 2020,
             sourceType: "module",
           },
           rules: customRules,
         },
-        useEslintrc: false,
-        resolvePluginsRelativeTo: "/workspace/synapse/src/services",
+        overrideConfigFile: true,
       });
     });
 
