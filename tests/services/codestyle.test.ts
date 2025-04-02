@@ -184,8 +184,7 @@ describe("CodeStyle", () => {
       expect(result.issues).toHaveLength(1);
       expect(result.issues[0].rule).toBe("prefer-const");
       expect(MockESLint).toHaveBeenCalledWith({
-        useEslintrc: false,
-        overrideConfig: {
+        baseConfig: {
           parser: "@typescript-eslint/parser",
           rules: customRules,
         },

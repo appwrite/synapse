@@ -37,6 +37,20 @@ export class Git {
     });
   }
 
+  async init() {
+    await this.execute(["init"]);
+  }
+
+  /**
+   * Add a remote repository
+   * @param name - The name of the remote (e.g., "origin")
+   * @param url - The URL of the remote repository
+   * @returns The output of the git remote add command
+   */
+  async addRemote(name: string, url: string): Promise<string> {
+    return this.execute(["remote", "add", name, url]);
+  }
+
   /**
    * Get the current branch name
    * @returns The current branch name

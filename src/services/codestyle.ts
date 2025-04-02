@@ -97,8 +97,7 @@ export class CodeStyle {
    */
   async lint(code: string, options: LintOptions): Promise<LintResult> {
     const eslintOptions = {
-      useEslintrc: false,
-      overrideConfig: {
+      baseConfig: {
         parser: "@typescript-eslint/parser",
         rules: options.rules || {},
       },
