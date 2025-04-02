@@ -1,4 +1,6 @@
-import WebSocket from "ws";
+import { IncomingMessage } from "http";
+import { Socket } from "net";
+import WebSocket, { WebSocketServer } from "ws";
 
 export type MessagePayload = {
   type: string;
@@ -13,52 +15,169 @@ export type Logger = (message: string) => void;
 
 class Synapse {
   private ws: WebSocket | null = null;
+  private wss: WebSocketServer;
   private messageHandlers: Record<string, MessageHandler> = {};
   private connectionListeners = {
     onOpen: (() => {}) as ConnectionCallback,
     onClose: (() => {}) as ConnectionCallback,
     onError: (() => {}) as ErrorCallback,
   };
+
+  private isReconnecting = false;
+  private maxReconnectAttempts = 5;
+  private reconnectAttempts = 0;
+  private reconnectInterval = 3000;
+  private lastPath: string | null = null;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+
   logger: Logger = console.log;
+  private host: string;
+  private port: number;
+
+  constructor(host: string = "localhost", port: number = 3000) {
+    this.host = host;
+    this.port = port;
+    this.wss = new WebSocketServer({ noServer: true });
+    this.wss.on("connection", (ws: WebSocket) => {
+      this.setupWebSocket(ws);
+    });
+  }
+
+  private setupWebSocket(ws: WebSocket): void {
+    this.ws = ws;
+    this.reconnectAttempts = 0;
+
+    ws.onmessage = (event) => this.handleMessage(event);
+
+    ws.onclose = () => {
+      this.ws = null;
+      this.connectionListeners.onClose();
+      this.attemptReconnect();
+    };
+
+    ws.onerror = (error) => {
+      const errorMessage = `WebSocket error: ${error.message || "Unknown error"}. Connection to ${this.host}:${this.port} failed.`;
+      this.connectionListeners.onError(new Error(errorMessage));
+    };
+
+    this.connectionListeners.onOpen();
+  }
+
+  private attemptReconnect() {
+    if (
+      this.isReconnecting ||
+      this.reconnectAttempts >= this.maxReconnectAttempts
+    ) {
+      return;
+    }
+
+    this.isReconnecting = true;
+    this.reconnectAttempts++;
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.logger(
+        `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`,
+      );
+      this.connect(this.lastPath || "/")
+        .then(() => {
+          this.isReconnecting = false;
+          this.logger("Reconnection successful");
+        })
+        .catch((error) => {
+          this.isReconnecting = false;
+          this.logger(`Reconnection failed: ${error.message}`);
+          if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.attemptReconnect();
+          }
+        });
+    }, this.reconnectInterval);
+  }
+
+  /**
+   * Cancels the reconnection process
+   */
+  public cancelReconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    this.isReconnecting = false;
+    this.reconnectAttempts = this.maxReconnectAttempts;
+  }
 
   private handleMessage(event: WebSocket.MessageEvent): void {
     try {
-      const message: MessagePayload = JSON.parse(event.data as string);
+      const data = event.data as string;
+
+      if (data === "ping" && this.ws) {
+        this.ws.send("pong");
+        return;
+      }
+
+      const message: MessagePayload = JSON.parse(data);
 
       if (this.messageHandlers[message.type]) {
         this.messageHandlers[message.type](message);
       }
     } catch (error) {
-      this.logger(`Message parsing error: ${error}`);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown parsing error";
+      this.logger(
+        `Message parsing error: ${errorMessage}. Raw message: ${event.data}`,
+      );
     }
+  }
+
+  private buildWebSocketUrl(path: string): string {
+    return `ws://${this.host}:${this.port}${path}`;
   }
 
   /**
    * Establishes a WebSocket connection to the specified URL and initializes the terminal
-   * @param url - The WebSocket server URL to connect to
+   * @param path - The WebSocket endpoint path (e.g. '/' or '/terminal')
    * @returns Promise that resolves with the Synapse instance when connected
    * @throws Error if WebSocket connection fails
    */
-  connect(url: string): Promise<Synapse> {
+  connect(path: string): Promise<Synapse> {
+    this.lastPath = path;
+    const url = this.buildWebSocketUrl(path);
+
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(url);
+      try {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          resolve(this);
+          return;
+        }
 
-      this.ws.onopen = () => {
-        this.connectionListeners.onOpen();
-        resolve(this);
-      };
+        this.ws = new WebSocket(url);
 
-      this.ws.onmessage = (event: WebSocket.MessageEvent) =>
-        this.handleMessage(event);
+        this.ws.onopen = () => {
+          this.reconnectAttempts = 0;
+          this.connectionListeners.onOpen();
+          resolve(this);
+        };
 
-      this.ws.onerror = () => {
-        this.connectionListeners.onError(new Error("WebSocket error occurred"));
-        reject(new Error("WebSocket error occurred"));
-      };
+        this.ws.onmessage = (event: WebSocket.MessageEvent) =>
+          this.handleMessage(event);
 
-      this.ws.onclose = () => {
-        this.connectionListeners.onClose();
-      };
+        this.ws.onerror = (error: WebSocket.ErrorEvent) => {
+          const errorMessage = `WebSocket error: ${error.message || "Unknown error"}. Failed to connect to ${url}`;
+          this.connectionListeners.onError(new Error(errorMessage));
+          reject(new Error(errorMessage));
+        };
+
+        this.ws.onclose = () => {
+          this.connectionListeners.onClose();
+        };
+      } catch (error) {
+        reject(
+          new Error(
+            `Failed to create WebSocket connection: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          ),
+        );
+      }
     });
   }
 
@@ -100,9 +219,10 @@ class Synapse {
   /**
    * Sends a command to the terminal for execution
    * @param command - The command string to execute
+   * @returns A promise that resolves with the message payload
    */
-  sendCommand(command: string): void {
-    this.send("terminal", {
+  sendCommand(command: string): Promise<MessagePayload> {
+    return this.send("terminal", {
       operation: "createCommand",
       params: { command },
     });
@@ -150,12 +270,35 @@ class Synapse {
   }
 
   /**
+   * Handles HTTP upgrade requests to upgrade the connection to WebSocket
+   * @param req - The HTTP request
+   * @param socket - The network socket
+   * @param head - The first packet of the upgraded stream
+   */
+  handleUpgrade(req: IncomingMessage, socket: Socket, head: Buffer): void {
+    this.wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
+      this.wss.emit("connection", ws, req);
+    });
+  }
+
+  /**
+   * Checks if the WebSocket connection is currently open and ready
+   * @returns {boolean} True if the connection is open and ready
+   */
+  isConnected() {
+    return this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /**
    * Closes the WebSocket connection
    */
   disconnect(): void {
+    this.cancelReconnect();
     if (this.ws) {
       this.ws.close();
+      this.ws = null;
     }
+    this.wss.close();
   }
 }
 
