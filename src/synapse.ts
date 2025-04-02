@@ -107,7 +107,14 @@ class Synapse {
 
   private handleMessage(event: WebSocket.MessageEvent): void {
     try {
-      const message: MessagePayload = JSON.parse(event.data as string);
+      const data = event.data as string;
+
+      if (data === "ping" && this.ws) {
+        this.ws.send("pong");
+        return;
+      }
+
+      const message: MessagePayload = JSON.parse(data);
 
       if (this.messageHandlers[message.type]) {
         this.messageHandlers[message.type](message);
@@ -127,7 +134,7 @@ class Synapse {
 
   /**
    * Establishes a WebSocket connection to the specified URL and initializes the terminal
-   * @param path - The WebSocket endpoint path (e.g. '/terminal')
+   * @param path - The WebSocket endpoint path (e.g. '/' or '/terminal')
    * @returns Promise that resolves with the Synapse instance when connected
    * @throws Error if WebSocket connection fails
    */

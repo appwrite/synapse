@@ -51,11 +51,11 @@ describe("Synapse", () => {
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
 
-      const connectPromise = defaultSynapse.connect("/terminal");
+      const connectPromise = defaultSynapse.connect("/");
       mockWs.onopen!({} as WebSocket.Event);
 
       await expect(connectPromise).resolves.toBe(defaultSynapse);
-      expect(WebSocket).toHaveBeenCalledWith("ws://localhost:3000/terminal");
+      expect(WebSocket).toHaveBeenCalledWith("ws://localhost:3000/");
     });
 
     it("should reject on connection error", async () => {
@@ -63,14 +63,32 @@ describe("Synapse", () => {
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
 
-      const connectPromise = synapse.connect("/terminal");
+      const connectPromise = synapse.connect("/");
       mockWs.onerror!({
         error: new Error("Connection failed"),
       } as WebSocket.ErrorEvent);
 
       await expect(connectPromise).rejects.toThrow(
-        "WebSocket error: Unknown error. Failed to connect to ws://localhost:8080/terminal",
+        "WebSocket error: Unknown error. Failed to connect to ws://localhost:8080/",
       );
+    });
+  });
+
+  describe("ping-pong", () => {
+    it("should handle ping-pong messages correctly", async () => {
+      const mockWs = createMockWebSocket();
+
+      (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
+
+      const connectPromise = synapse.connect("/");
+      mockWs.onopen!({} as WebSocket.Event);
+      await connectPromise;
+
+      mockWs.onmessage!({
+        data: "ping",
+      } as WebSocket.MessageEvent);
+
+      expect(mockWs.send).toHaveBeenCalledWith("pong");
     });
   });
 
@@ -82,7 +100,7 @@ describe("Synapse", () => {
       const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
-      const connectPromise = synapse.connect("/terminal");
+      const connectPromise = synapse.connect("/");
       mockWs.onopen!({} as WebSocket.Event);
       await connectPromise;
 
@@ -114,7 +132,7 @@ describe("Synapse", () => {
       const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
-      const connectPromise = synapse.connect("/terminal");
+      const connectPromise = synapse.connect("/");
       mockWs.onopen!({} as WebSocket.Event);
       await connectPromise;
 
@@ -134,7 +152,7 @@ describe("Synapse", () => {
       const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
-      const connectPromise = synapse.connect("/terminal");
+      const connectPromise = synapse.connect("/");
       mockWs.onopen!({} as WebSocket.Event);
       await connectPromise;
 
@@ -151,7 +169,7 @@ describe("Synapse", () => {
       const mockWs = createMockWebSocket();
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
-      const connectPromise = synapse.connect("/terminal");
+      const connectPromise = synapse.connect("/");
       mockWs.onopen!({} as WebSocket.Event);
       await connectPromise;
 
@@ -182,7 +200,7 @@ describe("Synapse", () => {
       const mockWs = createMockWebSocket({ readyState: WebSocket.CLOSED });
 
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
-      const connectPromise = synapse.connect("/terminal");
+      const connectPromise = synapse.connect("/");
       mockWs.onopen!({} as WebSocket.Event);
       await connectPromise;
 

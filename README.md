@@ -52,7 +52,7 @@ import { Synapse, Terminal } from "@appwrite.io/synapse";
 const synapse = new Synapse("localhost", 8080);
 
 // Connect to WebSocket server
-await synapse.connect("/terminal");
+await synapse.connect("/");
 
 // Create terminal instance with Synapse
 const terminal = new Terminal(synapse);
