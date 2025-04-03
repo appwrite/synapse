@@ -147,17 +147,34 @@ export class Terminal {
   }
 
   /**
+   * Cleans terminal output data by removing ANSI escape sequences, carriage returns, and extra whitespace
+   * @param data - The raw terminal output data
+   * @returns The cleaned data string
+   */
+  private cleanData(data: string): string {
+    return data
+      .replace(/\u001b\[[0-9;?]*[a-zA-Z]/g, "") // Remove ANSI escape sequences
+      .replace(/\r/g, "") // Remove carriage returns
+      .trim(); // Trim whitespace
+  }
+
+  /**
    * Sets the callback for when data is received from the terminal
    * @param callback - The callback to set
    */
   onData(callback: (success: boolean, data: string) => void): void {
-    this.onDataCallback = callback;
+    // Wrap the callback to clean the data before sending
+    this.onDataCallback = (success: boolean, data: string) => {
+      callback(success, this.cleanData(data));
+    };
 
     // If there was an initialization error, notify the callback immediately
     if (this.initializationError && callback) {
       callback(
         false,
-        `Terminal initialization failed: ${this.initializationError.message}`,
+        this.cleanData(
+          `Terminal initialization failed: ${this.initializationError.message}`,
+        ),
       );
     }
   }
