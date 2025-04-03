@@ -22,10 +22,11 @@
   },
   "license": "MIT",
   "dependencies": {
-    "node-pty": "^1.0.0",
-    "ws": "^8.18.1",
     "eslint": "^9.23.0",
-    "prettier": "^3.5.3"
+    "micro": "^10.0.1",
+    "node-pty": "^1.0.0",
+    "prettier": "^3.5.3",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

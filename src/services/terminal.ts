@@ -154,24 +154,6 @@ export class Terminal {
   }
 
   /**
-   * Cleans terminal output data by removing ANSI escape sequences, carriage returns, and extra whitespace
-   * Also filters out the echoed command from the output
-   * @param data - The raw terminal output data
-   * @returns The cleaned data string
-   */
-  private cleanData(data: string): string {
-    let cleaned = data
-      .replace(/\u001b\[[0-9;?]*[a-zA-Z]/g, "") // Remove ANSI escape sequences
-      .replace(/\r/g, ""); // Remove carriage returns
-
-    if (this.lastCommand && cleaned.trim().startsWith(this.lastCommand)) {
-      cleaned = cleaned.slice(this.lastCommand.length);
-    }
-
-    return cleaned.trim();
-  }
-
-  /**
    * Sets the callback for when data is received from the terminal
    * @param callback - The callback to set
    */
@@ -188,16 +170,14 @@ export class Terminal {
       data: string,
       messageId: string | null,
     ) => {
-      callback(success, this.cleanData(data), messageId);
+      callback(success, data, messageId);
     };
 
     // If there was an initialization error, notify the callback immediately
     if (this.initializationError && callback) {
       callback(
         false,
-        this.cleanData(
-          `Terminal initialization failed: ${this.initializationError.message}`,
-        ),
+        `Terminal initialization failed: ${this.initializationError.message}`,
         null,
       );
     }

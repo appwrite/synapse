@@ -36,7 +36,7 @@ export interface LintResult {
   error?: string;
 }
 
-export class CodeStyle {
+export class Code {
   private synapse: Synapse;
 
   /**

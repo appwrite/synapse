@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 import { ESLint } from "eslint";
 import { format } from "prettier";
-import { CodeStyle } from "../../src/services/codestyle";
+import { Code } from "../../src/services/code";
 import { Synapse } from "../../src/synapse";
 
 jest.mock("prettier");
 jest.mock("eslint");
 jest.mock("../../src/synapse");
 
-describe("CodeStyle", () => {
-  let codeStyle: CodeStyle;
+describe("Code", () => {
+  let code: Code;
   let mockSynapse: jest.Mocked<Synapse>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockSynapse = new Synapse() as jest.Mocked<Synapse>;
-    codeStyle = new CodeStyle(mockSynapse);
+    code = new Code(mockSynapse);
   });
 
   describe("format", () => {
@@ -27,7 +27,7 @@ describe("CodeStyle", () => {
         expected,
       );
 
-      const result = await codeStyle.format(input, { language: "javascript" });
+      const result = await code.format(input, { language: "javascript" });
 
       expect(result).toEqual({
         success: true,
@@ -43,7 +43,7 @@ describe("CodeStyle", () => {
         expected,
       );
 
-      const result = await codeStyle.format(input, {
+      const result = await code.format(input, {
         language: "typescript",
         indent: 4,
         useTabs: true,
@@ -92,7 +92,7 @@ describe("CodeStyle", () => {
       }));
       (ESLint as unknown) = MockESLint;
 
-      const result = await codeStyle.lint(input, { language: "javascript" });
+      const result = await code.lint(input, { language: "javascript" });
 
       expect(result).toEqual({
         success: true,
@@ -143,7 +143,7 @@ describe("CodeStyle", () => {
       }));
       (ESLint as unknown) = MockESLint;
 
-      const result = await codeStyle.lint(input, { language: "javascript" });
+      const result = await code.lint(input, { language: "javascript" });
 
       expect(result).toEqual({
         success: true,
