@@ -78,7 +78,9 @@ export class Terminal {
       this.checkTerminal();
       this.term?.resize(Math.max(cols, 1), Math.max(rows, 1));
     } catch (error) {
-      console.error("Failed to resize terminal:", error);
+      if (this.onDataCallback) {
+        this.onDataCallback("Failed to resize terminal");
+      }
     }
   }
 
@@ -91,7 +93,9 @@ export class Terminal {
       this.checkTerminal();
       this.term?.write(command);
     } catch (error) {
-      console.error("Failed to write command to terminal:", error);
+      if (this.onDataCallback) {
+        this.onDataCallback("Failed to write command to terminal");
+      }
     }
   }
 
