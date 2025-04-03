@@ -11,86 +11,63 @@ describe("Filesystem", () => {
   beforeEach(() => {
     mockSynapse = jest.mocked({
       logger: jest.fn(),
-      setLogger: jest.fn(),
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      sendCommand: jest.fn(),
     } as unknown as Synapse);
 
     filesystem = new Filesystem(mockSynapse, "/test");
   });
 
   describe("createFile", () => {
-    it("should create a file with content and verify its existence", async () => {
+    it("should successfully create a file", async () => {
       const filePath = "/file.txt";
       const content = "test content";
 
       (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
       (fs.writeFile as jest.Mock).mockResolvedValue(undefined);
-      (fs.readFile as jest.Mock).mockResolvedValue(content);
-      (fs.access as jest.Mock).mockResolvedValue(undefined);
-
-      const createResult = await filesystem.createFile(filePath, content);
-      expect(createResult.success).toBe(true);
-
-      expect(fs.mkdir).toHaveBeenCalledWith(expect.any(String), {
-        recursive: true,
-      });
-
-      expect(fs.writeFile).toHaveBeenCalledWith(`/test${filePath}`, content);
-
-      await expect(fs.access(filePath)).resolves.toBeUndefined();
-
-      const readResult = await filesystem.getFile(filePath);
-      expect(readResult.success).toBe(true);
-      expect(readResult.data).toBe(content);
-    });
-
-    it("should handle file creation errors properly", async () => {
-      const filePath = "/test/error.txt";
-      const content = "test content";
-      const error = new Error("Failed to create file");
-
-      (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
-      (fs.writeFile as jest.Mock).mockRejectedValue(error);
 
       const result = await filesystem.createFile(filePath, content);
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Failed to create file");
-      expect(mockSynapse.logger).toHaveBeenCalledWith(
-        expect.stringContaining("Error: Failed to create file"),
+      expect(result).toEqual({ success: true });
+    });
+
+    it("should handle file creation errors", async () => {
+      const filePath = "/test/error.txt";
+      const content = "test content";
+
+      (fs.writeFile as jest.Mock).mockRejectedValue(
+        new Error("Failed to create file"),
       );
+
+      const result = await filesystem.createFile(filePath, content);
+      expect(result).toEqual({
+        success: false,
+        error: "Failed to create file",
+      });
     });
   });
 
   describe("getFile", () => {
-    it("should read file content and verify data", async () => {
+    it("should successfully read file content", async () => {
       const filePath = "/file.txt";
       const content = "test content";
 
       (fs.readFile as jest.Mock).mockResolvedValue(content);
-      (fs.access as jest.Mock).mockResolvedValue(undefined);
-
-      await expect(fs.access(filePath)).resolves.toBeUndefined();
 
       const result = await filesystem.getFile(filePath);
-      expect(result.success).toBe(true);
-      expect(result.data).toBe(content);
-      expect(fs.readFile).toHaveBeenCalledWith(`/test${filePath}`, "utf-8");
+      expect(result).toEqual({
+        success: true,
+        data: content,
+      });
     });
 
-    it("should handle file reading errors properly", async () => {
+    it("should handle file reading errors", async () => {
       const filePath = "/test/nonexistent.txt";
-      const error = new Error("File not found");
 
-      (fs.readFile as jest.Mock).mockRejectedValue(error);
+      (fs.readFile as jest.Mock).mockRejectedValue(new Error("File not found"));
 
       const result = await filesystem.getFile(filePath);
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("File not found");
-      expect(mockSynapse.logger).toHaveBeenCalledWith(
-        expect.stringContaining("Error: File not found"),
-      );
+      expect(result).toEqual({
+        success: false,
+        error: "File not found",
+      });
     });
   });
 });

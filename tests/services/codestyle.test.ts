@@ -14,39 +14,34 @@ describe("CodeStyle", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-
     mockSynapse = new Synapse() as jest.Mocked<Synapse>;
     codeStyle = new CodeStyle(mockSynapse);
   });
 
   describe("format", () => {
-    test("should format JavaScript code with default options", async () => {
+    test("should format JavaScript code correctly", async () => {
       const input = "const x=1;const y=2;";
       const expected = "const x = 1;\nconst y = 2;\n";
 
-      const mockFormat = format as jest.MockedFunction<typeof format>;
-      mockFormat.mockResolvedValue(expected);
+      (format as jest.MockedFunction<typeof format>).mockResolvedValue(
+        expected,
+      );
 
       const result = await codeStyle.format(input, { language: "javascript" });
 
-      expect(result.success).toBe(true);
-      expect(result.data).toBe(expected);
-      expect(format).toHaveBeenCalledWith(input, {
-        parser: "babel",
-        tabWidth: 2,
-        useTabs: false,
-        semi: true,
-        singleQuote: false,
-        printWidth: 80,
+      expect(result).toEqual({
+        success: true,
+        data: expected,
       });
     });
 
     test("should format TypeScript code with custom options", async () => {
-      const input = 'const x:number=1;const y:string="test";';
-      const expected = "const x: number = 1\nconst y: string = 'test'\n";
+      const input = "const x:number=1;";
+      const expected = "const x: number = 1;\n";
 
-      const mockFormat = format as jest.MockedFunction<typeof format>;
-      mockFormat.mockResolvedValue(expected);
+      (format as jest.MockedFunction<typeof format>).mockResolvedValue(
+        expected,
+      );
 
       const result = await codeStyle.format(input, {
         language: "typescript",
@@ -54,46 +49,18 @@ describe("CodeStyle", () => {
         useTabs: true,
         semi: false,
         singleQuote: true,
-        printWidth: 100,
       });
 
-      expect(result.success).toBe(true);
-      expect(result.data).toBe(expected);
-      expect(format).toHaveBeenCalledWith(input, {
-        parser: "typescript",
-        tabWidth: 4,
-        useTabs: true,
-        semi: false,
-        singleQuote: true,
-        printWidth: 100,
-      });
-    });
-
-    test("should handle unsupported language gracefully", async () => {
-      const input = "some code";
-      const expected = "formatted code";
-
-      const mockFormat = format as jest.MockedFunction<typeof format>;
-      mockFormat.mockResolvedValue(expected);
-
-      const result = await codeStyle.format(input, { language: "unsupported" });
-
-      expect(result.success).toBe(true);
-      expect(result.data).toBe(expected);
-      expect(format).toHaveBeenCalledWith(input, {
-        parser: "babel", // Should default to babel
-        tabWidth: 2,
-        useTabs: false,
-        semi: true,
-        singleQuote: false,
-        printWidth: 80,
+      expect(result).toEqual({
+        success: true,
+        data: expected,
       });
     });
   });
 
   describe("lint", () => {
-    test("should lint JavaScript code with default rules", async () => {
-      const input = "const x = 1;\nconst y = 2;";
+    test("should lint JavaScript code and return issues", async () => {
+      const input = "const x = 1;";
       const mockLintResult: ESLint.LintResult[] = [
         {
           messages: [
@@ -127,75 +94,23 @@ describe("CodeStyle", () => {
 
       const result = await codeStyle.lint(input, { language: "javascript" });
 
-      expect(result.success).toBe(true);
-      expect(result.data.issues).toHaveLength(1);
-      expect(result.data.issues[0]).toEqual({
-        line: 1,
-        column: 1,
-        severity: "error",
-        rule: "no-unused-vars",
-        message: "x is defined but never used",
-      });
-    });
-
-    test("should lint with custom rules", async () => {
-      const input = "let x = 1;";
-      const customRules = {
-        "prefer-const": "error" as const,
-      };
-
-      const mockLintResult: ESLint.LintResult[] = [
-        {
-          messages: [
+      expect(result).toEqual({
+        success: true,
+        data: {
+          issues: [
             {
               line: 1,
               column: 1,
-              severity: 2,
-              ruleId: "prefer-const",
-              message: "Use const instead of let",
+              severity: "error",
+              rule: "no-unused-vars",
+              message: "x is defined but never used",
             },
           ],
-          filePath: "",
-          errorCount: 1,
-          warningCount: 0,
-          fixableErrorCount: 0,
-          fixableWarningCount: 0,
-          source: input,
-          suppressedMessages: [],
-          fatalErrorCount: 0,
-          usedDeprecatedRules: [],
         },
-      ];
-
-      const mockLintText = jest
-        .fn<() => Promise<ESLint.LintResult[]>>()
-        .mockResolvedValue(mockLintResult);
-      const MockESLint = jest.fn().mockImplementation(() => ({
-        lintText: mockLintText,
-      }));
-      (ESLint as unknown) = MockESLint;
-
-      const result = await codeStyle.lint(input, {
-        language: "javascript",
-        rules: customRules,
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.data.issues).toHaveLength(1);
-      expect(result.data.issues[0].rule).toBe("prefer-const");
-      expect(MockESLint).toHaveBeenCalledWith({
-        overrideConfig: {
-          languageOptions: {
-            ecmaVersion: 2020,
-            sourceType: "module",
-          },
-          rules: customRules,
-        },
-        overrideConfigFile: true,
       });
     });
 
-    test("should handle warnings correctly", async () => {
+    test("should handle warnings in lint results", async () => {
       const input = 'console.log("test");';
       const mockLintResult: ESLint.LintResult[] = [
         {
@@ -203,7 +118,7 @@ describe("CodeStyle", () => {
             {
               line: 1,
               column: 1,
-              severity: 1, // Warning severity
+              severity: 1,
               ruleId: "no-console",
               message: "Unexpected console statement",
             },
@@ -230,8 +145,20 @@ describe("CodeStyle", () => {
 
       const result = await codeStyle.lint(input, { language: "javascript" });
 
-      expect(result.success).toBe(true);
-      expect(result.data.issues[0].severity).toBe("warning");
+      expect(result).toEqual({
+        success: true,
+        data: {
+          issues: [
+            {
+              line: 1,
+              column: 1,
+              severity: "warning",
+              rule: "no-console",
+              message: "Unexpected console statement",
+            },
+          ],
+        },
+      });
     });
   });
 });

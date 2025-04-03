@@ -6,16 +6,12 @@ jest.mock("os");
 
 describe("System", () => {
   let system: System;
-  let mockSynapse: jest.Mocked<Synapse>;
+  let mockSynapse: Synapse;
 
   beforeEach(() => {
-    mockSynapse = jest.mocked({
+    mockSynapse = {
       logger: jest.fn(),
-      setLogger: jest.fn(),
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      sendCommand: jest.fn(),
-    } as unknown as Synapse);
+    } as unknown as Synapse;
 
     system = new System(mockSynapse);
   });
@@ -39,13 +35,29 @@ describe("System", () => {
       (os.freemem as jest.Mock).mockReturnValue(4000000000);
       (os.loadavg as jest.Mock).mockReturnValue([1.5, 1.0, 0.5]);
 
-      const result = await system.getUsage(100); // Shorter interval for testing
+      const result = await system.getUsage(100);
 
       expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty("cpuCores", 1);
-      expect(result.data).toHaveProperty("memoryTotalBytes", 8000000000);
-      expect(result.data).toHaveProperty("memoryFreeBytes", 4000000000);
-      expect(result.data).toHaveProperty("memoryUsagePercent", 50);
+      expect(result.data).toBeDefined();
+
+      if (result.data) {
+        const data = result.data;
+        expect(data.cpuCores).toBe(1);
+        expect(Array.isArray(data.cpuUsagePerCore)).toBe(true);
+        expect(data.cpuUsagePerCore.length).toBe(1);
+        expect(typeof data.cpuUsagePercent).toBe("number");
+        expect(data.cpuUsagePercent).toBeGreaterThanOrEqual(0);
+        expect(data.cpuUsagePercent).toBeLessThanOrEqual(100);
+
+        expect(data.loadAverage1m).toBe(1.5);
+        expect(data.loadAverage5m).toBe(1.0);
+        expect(data.loadAverage15m).toBe(0.5);
+
+        expect(data.memoryTotalBytes).toBe(8000000000);
+        expect(data.memoryFreeBytes).toBe(4000000000);
+        expect(data.memoryUsedBytes).toBe(4000000000);
+        expect(data.memoryUsagePercent).toBe(50);
+      }
     });
   });
 });
