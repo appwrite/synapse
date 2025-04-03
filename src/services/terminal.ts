@@ -80,7 +80,9 @@ export class Terminal {
       this.term?.resize(Math.max(cols, 1), Math.max(rows, 1));
     } catch (error) {
       if (this.onDataCallback) {
-        this.onDataCallback(false, "Failed to resize terminal");
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        this.onDataCallback(false, errorMessage);
       }
     }
   }
@@ -95,7 +97,9 @@ export class Terminal {
       this.term?.write(command);
     } catch (error) {
       if (this.onDataCallback) {
-        this.onDataCallback(false, "Failed to write command to terminal");
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        this.onDataCallback(false, errorMessage);
       }
     }
   }
