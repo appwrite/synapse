@@ -15,20 +15,18 @@ export type FileOperationResult = {
 
 export class Filesystem {
   private synapse: Synapse;
-  private workingDir: string;
 
   /**
    * Creates a new Filesystem instance
    * @param synapse - The Synapse instance to use
-   * @param workingDir - The working directory to use
    */
-  constructor(synapse: Synapse, workingDir: string = process.cwd()) {
+  constructor(synapse: Synapse) {
     this.synapse = synapse;
-    this.workingDir = workingDir;
   }
 
-  private log(method: string, message: string): void {
-    this.synapse.logger(`[${method}] ${message}`);
+  private log(message: string): void {
+    const timestamp = new Date().toISOString();
+    console.log(`[Filesystem][${timestamp}] ${message}`);
   }
 
   /**
@@ -43,22 +41,16 @@ export class Filesystem {
     content: string = "",
   ): Promise<FileOperationResult> {
     try {
-      this.log("createFile", `Creating file at path: ${filePath}`);
-      const fullPath = path.join(this.workingDir, filePath);
-
+      this.log(`Creating file at path: ${filePath}`);
+      const fullPath = path.join(this.synapse.workDir, filePath);
       const dirPath = path.dirname(filePath);
-      this.log("createFile", `Ensuring directory exists: ${dirPath}`);
 
       await this.createFolder(dirPath);
-
-      this.log("createFile", "Writing file content...");
       await fs.writeFile(fullPath, content);
 
-      this.log("createFile", "File created successfully");
       return { success: true };
     } catch (error) {
       this.log(
-        "createFile",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
@@ -76,16 +68,14 @@ export class Filesystem {
    */
   async getFile(filePath: string): Promise<FileOperationResult> {
     try {
-      this.log("getFile", `Reading file at path: ${filePath}`);
-      const fullPath = path.join(this.workingDir, filePath);
+      this.log(`Reading file at path: ${filePath}`);
+      const fullPath = path.join(this.synapse.workDir, filePath);
 
       const data = await fs.readFile(fullPath, "utf-8");
 
-      this.log("getFile", "File read successfully");
       return { success: true, data };
     } catch (error) {
       this.log(
-        "getFile",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
@@ -107,22 +97,16 @@ export class Filesystem {
     content: string,
   ): Promise<FileOperationResult> {
     try {
-      this.log("updateFile", `Updating file at path: ${filePath}`);
-      const fullPath = path.join(this.workingDir, filePath);
-
+      this.log(`Updating file at path: ${filePath}`);
+      const fullPath = path.join(this.synapse.workDir, filePath);
       const dirPath = path.dirname(filePath);
-      this.log("updateFile", `Ensuring directory exists: ${dirPath}`);
 
       await this.createFolder(dirPath);
-
-      this.log("updateFile", "Writing file content...");
       await fs.writeFile(fullPath, content);
 
-      this.log("updateFile", "File updated successfully");
       return { success: true };
     } catch (error) {
       this.log(
-        "updateFile",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
@@ -144,17 +128,15 @@ export class Filesystem {
     newPath: string,
   ): Promise<FileOperationResult> {
     try {
-      this.log("updateFilePath", `Moving file from ${oldPath} to ${newPath}`);
-      const fullOldPath = path.join(this.workingDir, oldPath);
-      const fullNewPath = path.join(this.workingDir, newPath);
+      this.log(`Moving file from ${oldPath} to ${newPath}`);
+      const fullOldPath = path.join(this.synapse.workDir, oldPath);
+      const fullNewPath = path.join(this.synapse.workDir, newPath);
 
       await fs.rename(fullOldPath, fullNewPath);
 
-      this.log("updateFilePath", "File moved successfully");
       return { success: true };
     } catch (error) {
       this.log(
-        "updateFilePath",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
@@ -172,16 +154,14 @@ export class Filesystem {
    */
   async deleteFile(filePath: string): Promise<FileOperationResult> {
     try {
-      this.log("deleteFile", `Deleting file at path: ${filePath}`);
-      const fullPath = path.join(this.workingDir, filePath);
+      this.log(`Deleting file at path: ${filePath}`);
+      const fullPath = path.join(this.synapse.workDir, filePath);
 
       await fs.unlink(fullPath);
 
-      this.log("deleteFile", "File deleted successfully");
       return { success: true };
     } catch (error) {
       this.log(
-        "deleteFile",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
@@ -199,16 +179,14 @@ export class Filesystem {
    */
   async createFolder(dirPath: string): Promise<FileOperationResult> {
     try {
-      this.log("createFolder", `Creating directory at path: ${dirPath}`);
-      const fullPath = path.join(this.workingDir, dirPath);
+      this.log(`Creating directory at path: ${dirPath}`);
+      const fullPath = path.join(this.synapse.workDir, dirPath);
 
       await fs.mkdir(fullPath, { recursive: true });
 
-      this.log("createFolder", "Directory created successfully");
       return { success: true };
     } catch (error) {
       this.log(
-        "createFolder",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
@@ -226,8 +204,8 @@ export class Filesystem {
    */
   async getFolder(dirPath: string): Promise<FileOperationResult> {
     try {
-      this.log("getFolder", `Reading directory at path: ${dirPath}`);
-      const fullPath = path.join(this.workingDir, dirPath);
+      this.log(`Reading directory at path: ${dirPath}`);
+      const fullPath = path.join(this.synapse.workDir, dirPath);
 
       const items = await fs.readdir(fullPath, { withFileTypes: true });
       const data: FileItem[] = items.map((item) => ({
@@ -235,14 +213,9 @@ export class Filesystem {
         isDirectory: item.isDirectory(),
       }));
 
-      this.log(
-        "getFolder",
-        `Directory read successfully, found ${items.length} items`,
-      );
       return { success: true, data };
     } catch (error) {
       this.log(
-        "getFolder",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
@@ -261,19 +234,17 @@ export class Filesystem {
     name: string,
   ): Promise<FileOperationResult> {
     try {
-      this.log("updateFolderName", `Renaming folder at ${dirPath} to ${name}`);
-      const fullPath = path.join(this.workingDir, dirPath);
+      this.log(`Renaming folder at ${dirPath} to ${name}`);
+      const fullPath = path.join(this.synapse.workDir, dirPath);
 
       const dir = path.dirname(fullPath);
       const newPath = path.join(dir, name);
 
       await fs.rename(fullPath, newPath);
 
-      this.log("updateFolderName", "Folder renamed successfully");
       return { success: true };
     } catch (error) {
       this.log(
-        "updateFolderName",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
@@ -295,20 +266,15 @@ export class Filesystem {
     newPath: string,
   ): Promise<FileOperationResult> {
     try {
-      this.log(
-        "updateFolderPath",
-        `Moving folder from ${oldPath} to ${newPath}`,
-      );
-      const fullOldPath = path.join(this.workingDir, oldPath);
-      const fullNewPath = path.join(this.workingDir, newPath);
+      this.log(`Moving folder from ${oldPath} to ${newPath}`);
+      const fullOldPath = path.join(this.synapse.workDir, oldPath);
+      const fullNewPath = path.join(this.synapse.workDir, newPath);
 
       await fs.rename(fullOldPath, fullNewPath);
 
-      this.log("updateFolderPath", "Folder moved successfully");
       return { success: true };
     } catch (error) {
       this.log(
-        "updateFolderPath",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
@@ -326,16 +292,14 @@ export class Filesystem {
    */
   async deleteFolder(dirPath: string): Promise<FileOperationResult> {
     try {
-      this.log("deleteFolder", `Deleting folder at path: ${dirPath}`);
-      const fullPath = path.join(this.workingDir, dirPath);
+      this.log(`Deleting folder at path: ${dirPath}`);
+      const fullPath = path.join(this.synapse.workDir, dirPath);
 
       await fs.rm(fullPath, { recursive: true, force: true });
 
-      this.log("deleteFolder", "Folder deleted successfully");
       return { success: true };
     } catch (error) {
       this.log(
-        "deleteFolder",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {

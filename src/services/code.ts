@@ -47,6 +47,11 @@ export class Code {
     this.synapse = synapse;
   }
 
+  private log(message: string): void {
+    const timestamp = new Date().toISOString();
+    console.log(`[Code][${timestamp}] ${message}`);
+  }
+
   private getParserForLanguage(language: string): string {
     const languageMap: Record<string, string> = {
       javascript: "babel",
@@ -99,6 +104,8 @@ export class Code {
         };
       }
 
+      this.log(`Formatting code with language: ${options.language}`);
+
       const prettierOptions = this.toPrettierOptions(options.language, options);
       const formattedCode = await format(code, prettierOptions);
 
@@ -107,6 +114,9 @@ export class Code {
         data: formattedCode,
       };
     } catch (error) {
+      this.log(
+        `Formatting failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
       return {
         success: false,
         error: `Formatting failed: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -135,6 +145,8 @@ export class Code {
           error: "Language must be specified in lint options",
         };
       }
+
+      this.log(`Linting code with language: ${options.language}`);
 
       const eslintOptions = {
         overrideConfig: {
@@ -165,6 +177,9 @@ export class Code {
         },
       };
     } catch (error) {
+      this.log(
+        `Linting failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
       return {
         success: false,
         error: `Linting failed: ${error instanceof Error ? error.message : "Unknown error"}`,

@@ -23,18 +23,10 @@ export class Git {
     this.workingDir = workingDir;
   }
 
-  /**
-   * Check if an error is a NodeJS.ErrnoException
-   */
   private isErrnoException(error: unknown): error is NodeJS.ErrnoException {
     return error instanceof Error && "code" in error;
   }
 
-  /**
-   * Executes a git command and returns the output as a Promise
-   * @param args - The arguments to pass to the git command
-   * @returns The output of the git command
-   */
   private async execute(args: string[]): Promise<GitOperationResult> {
     return new Promise((resolve) => {
       const git = spawn("git", args, { cwd: this.workingDir });
@@ -69,9 +61,6 @@ export class Git {
     });
   }
 
-  /**
-   * Check if the current directory is already a git repository
-   */
   private async isGitRepository(): Promise<boolean> {
     try {
       const gitDir = path.join(this.workingDir, ".git");

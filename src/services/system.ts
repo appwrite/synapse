@@ -33,6 +33,11 @@ export class System {
     this.synapse = synapse;
   }
 
+  private log(message: string): void {
+    const timestamp = new Date().toISOString();
+    console.log(`[System][${timestamp}] ${message}`);
+  }
+
   private calculateCPUUsage(startUsage: CPUTimes, endUsage: CPUTimes): number {
     const userDiff = endUsage.user - startUsage.user;
     const systemDiff = endUsage.system - startUsage.system;
@@ -67,7 +72,7 @@ export class System {
    */
   async getUsage(measurementInterval: number = 3000): Promise<SystemUsageData> {
     try {
-      this.synapse.logger("Starting system usage measurement");
+      this.log("Starting system usage measurement");
 
       const startMeasurements = this.getCPUUsage();
       await new Promise((resolve) => setTimeout(resolve, measurementInterval));
@@ -84,7 +89,7 @@ export class System {
 
       const [loadAvg1m, loadAvg5m, loadAvg15m] = os.loadavg();
 
-      this.synapse.logger("System usage measurement completed");
+      this.log("System usage measurement completed");
 
       return {
         success: true,
@@ -104,7 +109,7 @@ export class System {
         },
       };
     } catch (error) {
-      this.synapse.logger(
+      this.log(
         `Error in getUsage: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {

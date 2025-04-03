@@ -6,7 +6,6 @@ export type TerminalOptions = {
   shell: string;
   cols?: number;
   rows?: number;
-  workdir?: string;
 };
 
 export class Terminal {
@@ -16,6 +15,7 @@ export class Terminal {
     null;
   private isAlive: boolean = false;
   private initializationError: Error | null = null;
+  private lastCommand: string | null = null;
 
   /**
    * Creates a new Terminal instance
@@ -28,7 +28,6 @@ export class Terminal {
       shell: os.platform() === "win32" ? "powershell.exe" : "bash",
       cols: 80,
       rows: 24,
-      workdir: process.cwd(),
     },
   ) {
     this.synapse = synapse;
@@ -38,7 +37,7 @@ export class Terminal {
         name: "xterm-color",
         cols: terminalOptions.cols,
         rows: terminalOptions.rows,
-        cwd: terminalOptions.workdir,
+        cwd: this.synapse.workDir,
         env: process.env,
       });
 
@@ -79,22 +78,34 @@ export class Terminal {
     }
   }
 
+  private log(message: string): void {
+    const timestamp = new Date().toISOString();
+    console.log(`[Terminal][${timestamp}] ${message}`);
+  }
+
+  private stripAnsi(str: string): string {
+    return str
+      .replace(
+        /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
+        "",
+      ) // Remove ANSI escape sequences
+      .replace(/\r/g, "") // Remove carriage returns
+      .replace(/\u001b\[?[0-9;]*[A-Za-z]/g, "") // Remove cursor movements
+      .replace(/\u001b\[\?[0-9;]*[A-Za-z]/g, ""); // Remove terminal mode commands
+  }
+
+  private checkTerminal(): void {
+    if (!this.isAlive || !this.term) {
+      throw new Error("Terminal is not alive or has been terminated");
+    }
+  }
+
   /**
    * Get initialization error if any
    * @returns The initialization error or null
    */
   getInitializationError(): Error | null {
     return this.initializationError;
-  }
-
-  /**
-   * Checks if the terminal is alive and ready
-   * @throws Error if terminal is not alive
-   */
-  private checkTerminal(): void {
-    if (!this.isAlive || !this.term) {
-      throw new Error("Terminal is not alive or has been terminated");
-    }
   }
 
   /**
@@ -118,6 +129,9 @@ export class Terminal {
   createCommand(command: string): void {
     try {
       this.checkTerminal();
+      this.log(`Writing command: ${command}`);
+
+      this.lastCommand = command;
 
       // Ensure command ends with newline
       if (!command.endsWith("\n")) {
@@ -136,6 +150,15 @@ export class Terminal {
    */
   onData(callback: (success: boolean, data: string) => void): void {
     this.onDataCallback = (success: boolean, data: string) => {
+      const cleanData = this.stripAnsi(data);
+      const cleanCommand = this.lastCommand
+        ? this.stripAnsi(this.lastCommand)
+        : null;
+
+      if (cleanCommand && cleanData === cleanCommand) {
+        return;
+      }
+
       callback(success, data);
     };
 
@@ -152,6 +175,7 @@ export class Terminal {
    */
   kill(): void {
     if (this.isAlive && this.term) {
+      this.log("Killing terminal");
       this.term.kill();
       this.isAlive = false;
       this.term = null;
