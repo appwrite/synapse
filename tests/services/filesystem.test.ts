@@ -11,9 +11,10 @@ describe("Filesystem", () => {
   beforeEach(() => {
     mockSynapse = jest.mocked({
       logger: jest.fn(),
+      workDir: "/test",
     } as unknown as Synapse);
 
-    filesystem = new Filesystem(mockSynapse, "/test");
+    filesystem = new Filesystem(mockSynapse);
   });
 
   describe("createFile", () => {

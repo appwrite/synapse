@@ -30,17 +30,28 @@ class Synapse {
   private lastPath: string | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
 
-  logger: Logger = console.log;
   private host: string;
   private port: number;
 
-  constructor(host: string = "localhost", port: number = 3000) {
+  public workDir: string;
+
+  constructor(
+    host: string = "localhost",
+    port: number = 3000,
+    workDir: string = process.cwd(),
+  ) {
     this.host = host;
     this.port = port;
+    this.workDir = workDir;
     this.wss = new WebSocketServer({ noServer: true });
     this.wss.on("connection", (ws: WebSocket) => {
       this.setupWebSocket(ws);
     });
+  }
+
+  private log(message: string): void {
+    const timestamp = new Date().toISOString();
+    console.log(`[Synapse][${timestamp}] ${message}`);
   }
 
   private setupWebSocket(ws: WebSocket): void {
@@ -75,17 +86,17 @@ class Synapse {
     this.reconnectAttempts++;
 
     this.reconnectTimeout = setTimeout(() => {
-      this.logger(
+      this.log(
         `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`,
       );
       this.connect(this.lastPath || "/")
         .then(() => {
           this.isReconnecting = false;
-          this.logger("Reconnection successful");
+          this.log("Reconnection successful");
         })
         .catch((error) => {
           this.isReconnecting = false;
-          this.logger(`Reconnection failed: ${error.message}`);
+          this.log(`Reconnection failed: ${error.message}`);
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.attemptReconnect();
           }
@@ -122,7 +133,7 @@ class Synapse {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown parsing error";
-      this.logger(
+      this.log(
         `Message parsing error: ${errorMessage}. Raw message: ${event.data}`,
       );
     }
@@ -179,14 +190,6 @@ class Synapse {
         );
       }
     });
-  }
-
-  /**
-   * Sets the logger function for the Synapse instance
-   * @param logger - The logger function to use
-   */
-  setLogger(logger: Logger): void {
-    this.logger = logger;
   }
 
   /**
