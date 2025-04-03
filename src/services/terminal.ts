@@ -140,6 +140,9 @@ export class Terminal {
       this.checkTerminal();
       this.lastCommand = command.trim();
       this.term?.write(command);
+      if (this.onDataCallback) {
+        this.onDataCallback(true, "Command executed successfully", messageId);
+      }
     } catch (error) {
       console.error("Failed to execute command:", error);
       if (this.onDataCallback) {
