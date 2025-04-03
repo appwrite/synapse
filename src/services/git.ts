@@ -13,9 +13,9 @@ export class Git {
   private synapse: Synapse;
   private workingDir: string;
 
-  constructor(synapse: Synapse) {
+  constructor(synapse: Synapse, workingDir: string = process.cwd()) {
     this.synapse = synapse;
-    this.workingDir = process.cwd();
+    this.workingDir = workingDir;
   }
 
   /**
