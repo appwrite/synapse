@@ -139,6 +139,24 @@ export class Git {
   }
 
   /**
+   * Set Git user name
+   * @param name - The user name to set for Git
+   * @returns The output of the git config command
+   */
+  async setUserName(name: string): Promise<GitOperationResult> {
+    return this.execute(["config", "user.name", name]);
+  }
+
+  /**
+   * Set Git user email
+   * @param email - The email to set for Git
+   * @returns The output of the git config command
+   */
+  async setUserEmail(email: string): Promise<GitOperationResult> {
+    return this.execute(["config", "user.email", email]);
+  }
+
+  /**
    * Get the status of the repository
    * @returns The status of the repository
    */

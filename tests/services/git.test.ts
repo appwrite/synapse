@@ -283,6 +283,64 @@ describe("Git Service", () => {
     });
   });
 
+  describe("setUserName", () => {
+    it("should set git user name", async () => {
+      setupMockProcess(""); // Git config doesn't return output on success
+
+      const result = await git.setUserName("John Doe");
+
+      expect(result).toEqual({
+        success: true,
+        data: "",
+      });
+      expect(mockSpawn).toHaveBeenCalledWith(
+        "git",
+        ["config", "user.name", "John Doe"],
+        { cwd: mockWorkingDir },
+      );
+    });
+
+    it("should handle error when setting user name fails", async () => {
+      setupMockProcess("", "error: could not set user.name", 1);
+
+      const result = await git.setUserName("John Doe");
+
+      expect(result).toEqual({
+        success: false,
+        error: "error: could not set user.name",
+      });
+    });
+  });
+
+  describe("setUserEmail", () => {
+    it("should set git user email", async () => {
+      setupMockProcess(""); // Git config doesn't return output on success
+
+      const result = await git.setUserEmail("john.doe@example.com");
+
+      expect(result).toEqual({
+        success: true,
+        data: "",
+      });
+      expect(mockSpawn).toHaveBeenCalledWith(
+        "git",
+        ["config", "user.email", "john.doe@example.com"],
+        { cwd: mockWorkingDir },
+      );
+    });
+
+    it("should handle error when setting user email fails", async () => {
+      setupMockProcess("", "error: could not set user.email", 1);
+
+      const result = await git.setUserEmail("john.doe@example.com");
+
+      expect(result).toEqual({
+        success: false,
+        error: "error: could not set user.email",
+      });
+    });
+  });
+
   describe("push", () => {
     it("should push changes to remote", async () => {
       setupMockProcess("Everything up-to-date");
