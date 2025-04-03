@@ -112,7 +112,7 @@ describe("Terminal", () => {
 
       // Simulate data event
       onDataHandler("test output");
-      expect(mockCallback).toHaveBeenCalledWith("test output");
+      expect(mockCallback).toHaveBeenCalledWith(true, "test output");
     });
 
     it("should override previous data callback", () => {
@@ -126,7 +126,7 @@ describe("Terminal", () => {
       onDataHandler("test output");
 
       expect(mockCallback1).not.toHaveBeenCalled();
-      expect(mockCallback2).toHaveBeenCalledWith("test output");
+      expect(mockCallback2).toHaveBeenCalledWith(true, "test output");
     });
 
     it("should handle kill operation", () => {

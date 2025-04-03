@@ -12,7 +12,8 @@ export type TerminalOptions = {
 export class Terminal {
   private synapse: Synapse;
   private term: pty.IPty | null = null;
-  private onDataCallback: ((data: string) => void) | null = null;
+  private onDataCallback: ((success: boolean, data: string) => void) | null =
+    null;
   private isAlive: boolean = false;
 
   /**
@@ -43,7 +44,7 @@ export class Terminal {
 
       this.term.onData((data: string) => {
         if (this.onDataCallback) {
-          this.onDataCallback(data);
+          this.onDataCallback(true, data);
         }
       });
 
@@ -79,7 +80,7 @@ export class Terminal {
       this.term?.resize(Math.max(cols, 1), Math.max(rows, 1));
     } catch (error) {
       if (this.onDataCallback) {
-        this.onDataCallback("Failed to resize terminal");
+        this.onDataCallback(false, "Failed to resize terminal");
       }
     }
   }
@@ -94,7 +95,7 @@ export class Terminal {
       this.term?.write(command);
     } catch (error) {
       if (this.onDataCallback) {
-        this.onDataCallback("Failed to write command to terminal");
+        this.onDataCallback(false, "Failed to write command to terminal");
       }
     }
   }
@@ -103,7 +104,7 @@ export class Terminal {
    * Sets the callback for when data is received from the terminal
    * @param callback - The callback to set
    */
-  onData(callback: (data: string) => void): void {
+  onData(callback: (success: boolean, data: string) => void): void {
     this.onDataCallback = callback;
   }
 
