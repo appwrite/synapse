@@ -9,11 +9,20 @@ describe("Terminal", () => {
   let terminal: Terminal;
   let mockSynapse: Synapse;
   let mockPty: jest.Mocked<pty.IPty>;
+  let onDataHandler: (data: string) => void;
+  let onExitHandler: () => void;
 
   beforeEach(() => {
     mockSynapse = new Synapse();
     mockPty = {
-      onData: jest.fn(),
+      onData: jest.fn((callback) => {
+        onDataHandler = callback;
+        return mockPty;
+      }),
+      onExit: jest.fn((callback) => {
+        onExitHandler = callback;
+        return mockPty;
+      }),
       write: jest.fn(),
       resize: jest.fn(),
       kill: jest.fn(),
@@ -42,6 +51,7 @@ describe("Terminal", () => {
           env: process.env,
         }),
       );
+      expect(mockPty.onExit).toHaveBeenCalled();
     });
 
     it("should create terminal with custom options", () => {
@@ -66,6 +76,16 @@ describe("Terminal", () => {
         }),
       );
     });
+
+    it("should handle spawn failure", () => {
+      const error = new Error("Spawn failed");
+      (pty.spawn as jest.Mock).mockImplementationOnce(() => {
+        throw error;
+      });
+
+      terminal = new Terminal(mockSynapse);
+      expect(terminal.isTerminalAlive()).toBe(false);
+    });
   });
 
   describe("terminal operations", () => {
@@ -74,30 +94,25 @@ describe("Terminal", () => {
     });
 
     it("should handle resize operation with minimum values", () => {
+      expect(terminal.isTerminalAlive()).toBe(true);
       terminal.updateSize(0, -5);
-
       expect(mockPty.resize).toHaveBeenCalledWith(1, 1);
     });
 
     it("should handle write operation with command", () => {
       const command = "ls -la\n";
-
+      expect(terminal.isTerminalAlive()).toBe(true);
       terminal.createCommand(command);
-
       expect(mockPty.write).toHaveBeenCalledWith(command);
     });
 
     it("should handle data callback", () => {
       const mockCallback = jest.fn();
-
       terminal.onData(mockCallback);
 
-      // Simulate data event by calling the onData handler
-      const dataHandler = (mockPty.onData as jest.Mock).mock.calls[0][0];
-      const testOutput = "test output";
-      dataHandler(testOutput);
-
-      expect(mockCallback).toHaveBeenCalledWith(testOutput);
+      // Simulate data event
+      onDataHandler("test output");
+      expect(mockCallback).toHaveBeenCalledWith("test output");
     });
 
     it("should override previous data callback", () => {
@@ -107,20 +122,35 @@ describe("Terminal", () => {
       terminal.onData(mockCallback1);
       terminal.onData(mockCallback2);
 
-      // Simulate data event by calling the onData handler
-      const dataHandler = (mockPty.onData as jest.Mock).mock.calls[0][0];
-      const testOutput = "test output";
-      dataHandler(testOutput);
+      // Simulate data event
+      onDataHandler("test output");
 
-      // First callback should not be called, only the second one
       expect(mockCallback1).not.toHaveBeenCalled();
-      expect(mockCallback2).toHaveBeenCalledWith(testOutput);
+      expect(mockCallback2).toHaveBeenCalledWith("test output");
     });
 
     it("should handle kill operation", () => {
+      expect(terminal.isTerminalAlive()).toBe(true);
       terminal.kill();
-
       expect(mockPty.kill).toHaveBeenCalled();
+      expect(terminal.isTerminalAlive()).toBe(false);
+    });
+
+    it("should handle terminal exit", () => {
+      expect(terminal.isTerminalAlive()).toBe(true);
+      onExitHandler();
+      expect(terminal.isTerminalAlive()).toBe(false);
+    });
+
+    it("should not perform operations on dead terminal", () => {
+      terminal.kill();
+      expect(terminal.isTerminalAlive()).toBe(false);
+
+      terminal.updateSize(80, 24);
+      expect(mockPty.resize).not.toHaveBeenCalled();
+
+      terminal.createCommand("test");
+      expect(mockPty.write).not.toHaveBeenCalled();
     });
   });
 });

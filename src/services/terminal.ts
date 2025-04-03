@@ -13,6 +13,7 @@ export class Terminal {
   private synapse: Synapse;
   private term: pty.IPty | null = null;
   private onDataCallback: ((data: string) => void) | null = null;
+  private isAlive: boolean = false;
 
   /**
    * Creates a new Terminal instance
@@ -29,19 +30,42 @@ export class Terminal {
     },
   ) {
     this.synapse = synapse;
-    this.term = pty.spawn(terminalOptions.shell, [], {
-      name: "xterm-color",
-      cols: terminalOptions.cols,
-      rows: terminalOptions.rows,
-      cwd: terminalOptions.workdir,
-      env: process.env,
-    });
+    try {
+      this.term = pty.spawn(terminalOptions.shell, [], {
+        name: "xterm-color",
+        cols: terminalOptions.cols,
+        rows: terminalOptions.rows,
+        cwd: terminalOptions.workdir,
+        env: process.env,
+      });
 
-    this.term.onData((data: string) => {
-      if (this.onDataCallback) {
-        this.onDataCallback(data);
-      }
-    });
+      this.isAlive = true;
+
+      this.term.onData((data: string) => {
+        if (this.onDataCallback) {
+          this.onDataCallback(data);
+        }
+      });
+
+      this.term.onExit(() => {
+        this.isAlive = false;
+        this.term = null;
+      });
+    } catch (error) {
+      console.error("Failed to spawn terminal:", error);
+      this.isAlive = false;
+      this.term = null;
+    }
+  }
+
+  /**
+   * Checks if the terminal is alive and ready
+   * @throws Error if terminal is not alive
+   */
+  private checkTerminal(): void {
+    if (!this.isAlive || !this.term) {
+      throw new Error("Terminal is not alive or has been terminated");
+    }
   }
 
   /**
@@ -50,7 +74,12 @@ export class Terminal {
    * @param rows - The number of rows
    */
   updateSize(cols: number, rows: number): void {
-    this.term?.resize(Math.max(cols, 1), Math.max(rows, 1));
+    try {
+      this.checkTerminal();
+      this.term?.resize(Math.max(cols, 1), Math.max(rows, 1));
+    } catch (error) {
+      console.error("Failed to resize terminal:", error);
+    }
   }
 
   /**
@@ -58,7 +87,12 @@ export class Terminal {
    * @param command - The command to write
    */
   createCommand(command: string): void {
-    this.term?.write(command);
+    try {
+      this.checkTerminal();
+      this.term?.write(command);
+    } catch (error) {
+      console.error("Failed to write command to terminal:", error);
+    }
   }
 
   /**
@@ -73,6 +107,18 @@ export class Terminal {
    * Kills the terminal
    */
   kill(): void {
-    this.term?.kill();
+    if (this.isAlive && this.term) {
+      this.term.kill();
+      this.isAlive = false;
+      this.term = null;
+    }
+  }
+
+  /**
+   * Checks if the terminal is still alive
+   * @returns boolean indicating if the terminal is alive
+   */
+  isTerminalAlive(): boolean {
+    return this.isAlive && this.term !== null;
   }
 }
