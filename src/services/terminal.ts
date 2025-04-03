@@ -9,12 +9,17 @@ export type TerminalOptions = {
   workdir?: string;
 };
 
+export type TerminalData = {
+  success: boolean;
+  data?: string;
+  error?: string;
+};
+
 export class Terminal {
   private synapse: Synapse;
   private term: pty.IPty | null = null;
-  private onDataCallback:
-    | ((success: boolean, data: string, messageId: string | null) => void)
-    | null = null;
+  private onDataCallback: ((success: boolean, data: string) => void) | null =
+    null;
   private isAlive: boolean = false;
   private initializationError: Error | null = null;
   private lastCommand: string = "";
@@ -48,7 +53,7 @@ export class Terminal {
 
       this.term.onData((data: string) => {
         if (this.onDataCallback) {
-          this.onDataCallback(true, data, null);
+          this.onDataCallback(true, data);
         }
       });
 
@@ -60,7 +65,6 @@ export class Terminal {
           this.onDataCallback(
             false,
             `Terminal process exited with code ${e?.exitCode ?? "unknown"}`,
-            null,
           );
         }
       });
@@ -77,7 +81,6 @@ export class Terminal {
         this.onDataCallback(
           false,
           `Terminal initialization failed: ${errorMessage}`,
-          null,
         );
       }
     }
@@ -106,28 +109,21 @@ export class Terminal {
    * @param cols - The number of columns
    * @param rows - The number of rows
    */
-  updateSize(
-    cols: number,
-    rows: number,
-    messageId: string | null = null,
-  ): void {
+  updateSize(cols: number, rows: number): TerminalData {
     try {
       this.checkTerminal();
       this.term?.resize(Math.max(cols, 1), Math.max(rows, 1));
-      if (this.onDataCallback) {
-        this.onDataCallback(
-          true,
-          "Terminal size updated successfully",
-          messageId,
-        );
-      }
+      return {
+        success: true,
+        data: "Terminal size updated successfully",
+      };
     } catch (error) {
       console.error("Failed to update terminal size:", error);
-      if (this.onDataCallback) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error occurred";
-        this.onDataCallback(false, errorMessage, messageId);
-      }
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      };
     }
   }
 
@@ -135,21 +131,28 @@ export class Terminal {
    * Writes a command to the terminal
    * @param command - The command to write
    */
-  createCommand(command: string, messageId: string | null = null): void {
+  createCommand(command: string): TerminalData {
     try {
       this.checkTerminal();
       this.lastCommand = command.trim();
-      this.term?.write(command);
-      if (this.onDataCallback) {
-        this.onDataCallback(true, "Command executed successfully", messageId);
+
+      // Ensure command ends with newline
+      if (!command.endsWith("\n")) {
+        command += "\n";
       }
+
+      this.term?.write(command);
+      return {
+        success: true,
+        data: "Command executed successfully",
+      };
     } catch (error) {
       console.error("Failed to execute command:", error);
-      if (this.onDataCallback) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error occurred";
-        this.onDataCallback(false, errorMessage, messageId);
-      }
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      };
     }
   }
 
@@ -157,20 +160,10 @@ export class Terminal {
    * Sets the callback for when data is received from the terminal
    * @param callback - The callback to set
    */
-  onData(
-    callback: (
-      success: boolean,
-      data: string,
-      messageId: string | null,
-    ) => void,
-  ): void {
+  onData(callback: (success: boolean, data: string) => void): void {
     // Wrap the callback to clean the data before sending
-    this.onDataCallback = (
-      success: boolean,
-      data: string,
-      messageId: string | null,
-    ) => {
-      callback(success, data, messageId);
+    this.onDataCallback = (success: boolean, data: string) => {
+      callback(success, data);
     };
 
     // If there was an initialization error, notify the callback immediately
@@ -178,7 +171,6 @@ export class Terminal {
       callback(
         false,
         `Terminal initialization failed: ${this.initializationError.message}`,
-        null,
       );
     }
   }
