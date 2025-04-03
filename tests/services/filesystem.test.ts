@@ -54,9 +54,9 @@ describe("Filesystem", () => {
       (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
       (fs.writeFile as jest.Mock).mockRejectedValue(error);
 
-      await expect(filesystem.createFile(filePath, content)).rejects.toThrow(
-        error,
-      );
+      const result = await filesystem.createFile(filePath, content);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Failed to create file");
       expect(mockSynapse.logger).toHaveBeenCalledWith(
         expect.stringContaining("Error: Failed to create file"),
       );
@@ -85,7 +85,9 @@ describe("Filesystem", () => {
 
       (fs.readFile as jest.Mock).mockRejectedValue(error);
 
-      await expect(filesystem.getFile(filePath)).rejects.toThrow(error);
+      const result = await filesystem.getFile(filePath);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("File not found");
       expect(mockSynapse.logger).toHaveBeenCalledWith(
         expect.stringContaining("Error: File not found"),
       );

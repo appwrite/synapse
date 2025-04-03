@@ -95,7 +95,7 @@ describe("Git Service", () => {
 
       expect(result).toEqual({
         success: false,
-        data: "Git repository already exists in this directory",
+        error: "Git repository already exists in this directory",
       });
     });
   });
@@ -130,7 +130,7 @@ describe("Git Service", () => {
 
       expect(result).toEqual({
         success: false,
-        data: "remote origin already exists",
+        error: "remote origin already exists",
       });
     });
   });
@@ -159,7 +159,7 @@ describe("Git Service", () => {
 
       expect(result).toEqual({
         success: false,
-        data: "fatal: not a git repository",
+        error: "fatal: not a git repository",
       });
     });
   });
@@ -188,7 +188,7 @@ describe("Git Service", () => {
 
       expect(result).toEqual({
         success: false,
-        data: "fatal: not a git repository",
+        error: "fatal: not a git repository",
       });
     });
   });
@@ -221,7 +221,7 @@ describe("Git Service", () => {
 
       expect(result).toEqual({
         success: false,
-        data: "fatal: pathspec 'nonexistent.txt' did not match any files",
+        error: "fatal: pathspec 'nonexistent.txt' did not match any files",
       });
     });
   });
@@ -251,7 +251,7 @@ describe("Git Service", () => {
 
       expect(result).toEqual({
         success: false,
-        data: "nothing to commit, working tree clean",
+        error: "nothing to commit, working tree clean",
       });
     });
   });
@@ -278,7 +278,7 @@ describe("Git Service", () => {
 
       expect(result).toEqual({
         success: false,
-        data: "fatal: no remote repository specified",
+        error: "fatal: no remote repository specified",
       });
     });
   });
@@ -309,7 +309,7 @@ describe("Git Service", () => {
 
       expect(result).toEqual({
         success: false,
-        data: "fatal: The current branch has no upstream branch",
+        error: "fatal: The current branch has no upstream branch",
       });
     });
   });

@@ -10,6 +10,7 @@ export type FileItem = {
 export type FileOperationResult = {
   success: boolean;
   data?: string | FileItem[];
+  error?: string;
 };
 
 export class Filesystem {
@@ -56,7 +57,10 @@ export class Filesystem {
         "createFile",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -79,7 +83,10 @@ export class Filesystem {
         "getFile",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -112,7 +119,10 @@ export class Filesystem {
         "updateFile",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -139,7 +149,10 @@ export class Filesystem {
         "updateFilePath",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -162,7 +175,10 @@ export class Filesystem {
         "deleteFile",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -185,7 +201,10 @@ export class Filesystem {
         "createFolder",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -245,7 +264,10 @@ export class Filesystem {
         "updateFolderName",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -275,7 +297,10 @@ export class Filesystem {
         "updateFolderPath",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -298,7 +323,10 @@ export class Filesystem {
         "deleteFolder",
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 }

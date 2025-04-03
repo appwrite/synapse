@@ -18,12 +18,13 @@ export interface LintOptions {
 
 export interface FormatResult {
   success: boolean;
-  data: string;
+  data?: string;
+  error?: string;
 }
 
 export interface LintResult {
   success: boolean;
-  data: {
+  data?: {
     issues: Array<{
       line: number;
       column: number;
@@ -32,6 +33,7 @@ export interface LintResult {
       message: string;
     }>;
   };
+  error?: string;
 }
 
 export class CodeStyle {
@@ -82,13 +84,34 @@ export class CodeStyle {
    * @returns A promise resolving to the formatting result
    */
   async format(code: string, options: FormatOptions): Promise<FormatResult> {
-    const prettierOptions = this.toPrettierOptions(options.language, options);
-    const formattedCode = await format(code, prettierOptions);
+    try {
+      if (!code || typeof code !== "string") {
+        return {
+          success: false,
+          error: "Invalid code input: code must be a non-empty string",
+        };
+      }
 
-    return {
-      success: true,
-      data: formattedCode,
-    };
+      if (!options.language) {
+        return {
+          success: false,
+          error: "Language must be specified in format options",
+        };
+      }
+
+      const prettierOptions = this.toPrettierOptions(options.language, options);
+      const formattedCode = await format(code, prettierOptions);
+
+      return {
+        success: true,
+        data: formattedCode,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Formatting failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
   }
 
   /**
@@ -98,33 +121,54 @@ export class CodeStyle {
    * @returns A promise resolving to the linting result
    */
   async lint(code: string, options: LintOptions): Promise<LintResult> {
-    const eslintOptions = {
-      overrideConfig: {
-        languageOptions: {
-          ecmaVersion: 2020,
-          sourceType: "module",
+    try {
+      if (!code || typeof code !== "string") {
+        return {
+          success: false,
+          error: "Invalid code input: code must be a non-empty string",
+        };
+      }
+
+      if (!options.language) {
+        return {
+          success: false,
+          error: "Language must be specified in lint options",
+        };
+      }
+
+      const eslintOptions = {
+        overrideConfig: {
+          languageOptions: {
+            ecmaVersion: 2020,
+            sourceType: "module",
+          },
+          rules: options.rules || {},
         },
-        rules: options.rules || {},
-      },
-      overrideConfigFile: true,
-    } as ESLint.Options;
+        overrideConfigFile: true,
+      } as ESLint.Options;
 
-    const linter = new ESLint(eslintOptions);
-    const eslintResult = await linter.lintText(code);
+      const linter = new ESLint(eslintOptions);
+      const eslintResult = await linter.lintText(code);
 
-    return {
-      success: true,
-      data: {
-        issues: eslintResult.flatMap((result) =>
-          result.messages.map((message) => ({
-            line: message.line,
-            column: message.column,
-            severity: message.severity === 2 ? "error" : "warning",
-            rule: message.ruleId || "",
-            message: message.message,
-          })),
-        ),
-      },
-    };
+      return {
+        success: true,
+        data: {
+          issues: eslintResult.flatMap((result) =>
+            result.messages.map((message) => ({
+              line: message.line,
+              column: message.column,
+              severity: message.severity === 2 ? "error" : "warning",
+              rule: message.ruleId || "",
+              message: message.message,
+            })),
+          ),
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Linting failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
   }
 }

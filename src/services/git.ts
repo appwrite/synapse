@@ -5,7 +5,8 @@ import { Synapse } from "../synapse";
 
 export type GitOperationResult = {
   success: boolean;
-  data: string;
+  data?: string;
+  error?: string;
 };
 
 export class Git {
@@ -46,7 +47,7 @@ export class Git {
       git.on("error", (error: Error) => {
         resolve({
           success: false,
-          data: `Failed to execute git command: ${error.message}`,
+          error: `Failed to execute git command: ${error.message}`,
         });
       });
 
@@ -54,7 +55,7 @@ export class Git {
         if (code !== 0) {
           resolve({
             success: false,
-            data: errorOutput.trim() || "Git command failed",
+            error: errorOutput.trim() || "Git command failed",
           });
         } else {
           resolve({ success: true, data: output.trim() });
@@ -88,7 +89,7 @@ export class Git {
       if (await this.isGitRepository()) {
         return {
           success: false,
-          data: "Git repository already exists in this directory",
+          error: "Git repository already exists in this directory",
         };
       }
 
@@ -99,12 +100,12 @@ export class Git {
         if (this.isErrnoException(error)) {
           return {
             success: false,
-            data: `No write permission in the current directory: ${error.message}`,
+            error: `No write permission in the current directory: ${error.message}`,
           };
         }
         return {
           success: false,
-          data: "No write permission in the current directory",
+          error: "No write permission in the current directory",
         };
       }
 
@@ -114,7 +115,7 @@ export class Git {
         error instanceof Error ? error.message : "Unknown error occurred";
       return {
         success: false,
-        data: `Failed to initialize git repository: ${message}`,
+        error: `Failed to initialize git repository: ${message}`,
       };
     }
   }

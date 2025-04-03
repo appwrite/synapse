@@ -11,7 +11,7 @@ export type CPUTimes = {
 
 export type SystemUsageData = {
   success: boolean;
-  data: {
+  data?: {
     cpuCores: number;
     cpuUsagePerCore: number[];
     cpuUsagePercent: number;
@@ -23,6 +23,7 @@ export type SystemUsageData = {
     memoryUsedBytes: number;
     memoryUsagePercent: number;
   };
+  error?: string;
 };
 
 export class System {
@@ -106,7 +107,10 @@ export class System {
       this.synapse.logger(
         `Error in getUsage: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 }
