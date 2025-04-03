@@ -12,8 +12,9 @@ export type TerminalOptions = {
 export class Terminal {
   private synapse: Synapse;
   private term: pty.IPty | null = null;
-  private onDataCallback: ((success: boolean, data: string) => void) | null =
-    null;
+  private onDataCallback:
+    | ((success: boolean, data: string, messageId: string | null) => void)
+    | null = null;
   private isAlive: boolean = false;
   private initializationError: Error | null = null;
   private lastCommand: string = "";
@@ -33,7 +34,6 @@ export class Terminal {
     },
   ) {
     this.synapse = synapse;
-    console.log("Terminal constructor called with options:", terminalOptions);
 
     try {
       this.term = pty.spawn(terminalOptions.shell, [], {
@@ -44,19 +44,15 @@ export class Terminal {
         env: process.env,
       });
 
-      console.log("Terminal spawned successfully");
       this.isAlive = true;
 
       this.term.onData((data: string) => {
         if (this.onDataCallback) {
-          this.onDataCallback(true, data);
+          this.onDataCallback(true, data, null);
         }
       });
 
       this.term.onExit((e?: { exitCode: number; signal?: number }) => {
-        console.log(
-          `Terminal exited with code ${e?.exitCode ?? "unknown"} and signal ${e?.signal ?? "none"}`,
-        );
         this.isAlive = false;
         this.term = null;
 
@@ -64,6 +60,7 @@ export class Terminal {
           this.onDataCallback(
             false,
             `Terminal process exited with code ${e?.exitCode ?? "unknown"}`,
+            null,
           );
         }
       });
@@ -80,6 +77,7 @@ export class Terminal {
         this.onDataCallback(
           false,
           `Terminal initialization failed: ${errorMessage}`,
+          null,
         );
       }
     }
@@ -108,20 +106,27 @@ export class Terminal {
    * @param cols - The number of columns
    * @param rows - The number of rows
    */
-  updateSize(cols: number, rows: number): void {
-    console.log(
-      `Updating terminal size to ${cols}x${rows}, isAlive=${this.isAlive}`,
-    );
+  updateSize(
+    cols: number,
+    rows: number,
+    messageId: string | null = null,
+  ): void {
     try {
       this.checkTerminal();
       this.term?.resize(Math.max(cols, 1), Math.max(rows, 1));
-      console.log("Terminal size updated successfully");
+      if (this.onDataCallback) {
+        this.onDataCallback(
+          true,
+          "Terminal size updated successfully",
+          messageId,
+        );
+      }
     } catch (error) {
       console.error("Failed to update terminal size:", error);
       if (this.onDataCallback) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error occurred";
-        this.onDataCallback(false, errorMessage);
+        this.onDataCallback(false, errorMessage, messageId);
       }
     }
   }
@@ -130,10 +135,7 @@ export class Terminal {
    * Writes a command to the terminal
    * @param command - The command to write
    */
-  createCommand(command: string): void {
-    console.log(
-      `Executing command: ${command.substring(0, 50)}${command.length > 50 ? "..." : ""}`,
-    );
+  createCommand(command: string, messageId: string | null = null): void {
     try {
       this.checkTerminal();
       this.lastCommand = command.trim();
@@ -143,7 +145,7 @@ export class Terminal {
       if (this.onDataCallback) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error occurred";
-        this.onDataCallback(false, errorMessage);
+        this.onDataCallback(false, errorMessage, messageId);
       }
     }
   }
@@ -170,10 +172,20 @@ export class Terminal {
    * Sets the callback for when data is received from the terminal
    * @param callback - The callback to set
    */
-  onData(callback: (success: boolean, data: string) => void): void {
+  onData(
+    callback: (
+      success: boolean,
+      data: string,
+      messageId: string | null,
+    ) => void,
+  ): void {
     // Wrap the callback to clean the data before sending
-    this.onDataCallback = (success: boolean, data: string) => {
-      callback(success, this.cleanData(data));
+    this.onDataCallback = (
+      success: boolean,
+      data: string,
+      messageId: string | null,
+    ) => {
+      callback(success, this.cleanData(data), messageId);
     };
 
     // If there was an initialization error, notify the callback immediately
@@ -183,6 +195,7 @@ export class Terminal {
         this.cleanData(
           `Terminal initialization failed: ${this.initializationError.message}`,
         ),
+        null,
       );
     }
   }
@@ -191,14 +204,10 @@ export class Terminal {
    * Kills the terminal
    */
   kill(): void {
-    console.log("Killing terminal");
     if (this.isAlive && this.term) {
       this.term.kill();
       this.isAlive = false;
       this.term = null;
-      console.log("Terminal killed successfully");
-    } else {
-      console.log("Terminal was already not alive, nothing to kill");
     }
   }
 
