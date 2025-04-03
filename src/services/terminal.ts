@@ -9,12 +9,6 @@ export type TerminalOptions = {
   workdir?: string;
 };
 
-export type TerminalData = {
-  success: boolean;
-  data?: string;
-  error?: string;
-};
-
 export class Terminal {
   private synapse: Synapse;
   private term: pty.IPty | null = null;
@@ -22,7 +16,23 @@ export class Terminal {
     null;
   private isAlive: boolean = false;
   private initializationError: Error | null = null;
-  private lastCommand: string = "";
+  private lastCommand: string | null = null;
+
+  /**
+   * Strips ANSI escape sequences and control characters from a string
+   * @param str - The string to clean
+   * @returns The cleaned string
+   */
+  private stripAnsi(str: string): string {
+    return str
+      .replace(
+        /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
+        "",
+      )
+      .replace(/\r/g, "") // Remove carriage returns
+      .replace(/\u001b\[?[0-9;]*[A-Za-z]/g, "") // Remove cursor movements
+      .replace(/\u001b\[\?[0-9;]*[A-Za-z]/g, ""); // Remove terminal mode commands
+  }
 
   /**
    * Creates a new Terminal instance
@@ -109,21 +119,12 @@ export class Terminal {
    * @param cols - The number of columns
    * @param rows - The number of rows
    */
-  updateSize(cols: number, rows: number): TerminalData {
+  updateSize(cols: number, rows: number): void {
     try {
       this.checkTerminal();
       this.term?.resize(Math.max(cols, 1), Math.max(rows, 1));
-      return {
-        success: true,
-        data: "Terminal size updated successfully",
-      };
     } catch (error) {
       console.error("Failed to update terminal size:", error);
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Unknown error occurred",
-      };
     }
   }
 
@@ -131,28 +132,19 @@ export class Terminal {
    * Writes a command to the terminal
    * @param command - The command to write
    */
-  createCommand(command: string): TerminalData {
+  createCommand(command: string): void {
     try {
       this.checkTerminal();
-      this.lastCommand = command.trim();
 
       // Ensure command ends with newline
       if (!command.endsWith("\n")) {
         command += "\n";
       }
 
+      this.lastCommand = command;
       this.term?.write(command);
-      return {
-        success: true,
-        data: "Command executed successfully",
-      };
     } catch (error) {
       console.error("Failed to execute command:", error);
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Unknown error occurred",
-      };
     }
   }
 
@@ -161,12 +153,19 @@ export class Terminal {
    * @param callback - The callback to set
    */
   onData(callback: (success: boolean, data: string) => void): void {
-    // Wrap the callback to clean the data before sending
     this.onDataCallback = (success: boolean, data: string) => {
+      const cleanData = this.stripAnsi(data);
+      const cleanCommand = this.lastCommand
+        ? this.stripAnsi(this.lastCommand)
+        : null;
+
+      if (cleanCommand && cleanData === cleanCommand) {
+        return;
+      }
+
       callback(success, data);
     };
 
-    // If there was an initialization error, notify the callback immediately
     if (this.initializationError && callback) {
       callback(
         false,
