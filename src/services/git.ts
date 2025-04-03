@@ -13,6 +13,11 @@ export class Git {
   private synapse: Synapse;
   private workingDir: string;
 
+  /**
+   * Creates a new Git instance
+   * @param synapse - The Synapse instance to use
+   * @param workingDir - The working directory to use
+   */
   constructor(synapse: Synapse, workingDir: string = process.cwd()) {
     this.synapse = synapse;
     this.workingDir = workingDir;

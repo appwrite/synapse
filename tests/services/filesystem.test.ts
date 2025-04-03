@@ -17,12 +17,12 @@ describe("Filesystem", () => {
       sendCommand: jest.fn(),
     } as unknown as Synapse);
 
-    filesystem = new Filesystem(mockSynapse);
+    filesystem = new Filesystem(mockSynapse, "/test");
   });
 
   describe("createFile", () => {
     it("should create a file with content and verify its existence", async () => {
-      const filePath = "/test/file.txt";
+      const filePath = "/file.txt";
       const content = "test content";
 
       (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
@@ -37,7 +37,7 @@ describe("Filesystem", () => {
         recursive: true,
       });
 
-      expect(fs.writeFile).toHaveBeenCalledWith(filePath, content);
+      expect(fs.writeFile).toHaveBeenCalledWith(`/test${filePath}`, content);
 
       await expect(fs.access(filePath)).resolves.toBeUndefined();
 
@@ -65,7 +65,7 @@ describe("Filesystem", () => {
 
   describe("getFile", () => {
     it("should read file content and verify data", async () => {
-      const filePath = "/test/file.txt";
+      const filePath = "/file.txt";
       const content = "test content";
 
       (fs.readFile as jest.Mock).mockResolvedValue(content);
@@ -76,7 +76,7 @@ describe("Filesystem", () => {
       const result = await filesystem.getFile(filePath);
       expect(result.success).toBe(true);
       expect(result.data).toBe(content);
-      expect(fs.readFile).toHaveBeenCalledWith(filePath, "utf-8");
+      expect(fs.readFile).toHaveBeenCalledWith(`/test${filePath}`, "utf-8");
     });
 
     it("should handle file reading errors properly", async () => {

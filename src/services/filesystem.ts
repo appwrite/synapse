@@ -15,13 +15,16 @@ export type FileOperationResult = {
 
 export class Filesystem {
   private synapse: Synapse;
+  private workingDir: string;
 
   /**
    * Creates a new Filesystem instance
    * @param synapse - The Synapse instance to use
+   * @param workingDir - The working directory to use
    */
-  constructor(synapse: Synapse) {
+  constructor(synapse: Synapse, workingDir: string = process.cwd()) {
     this.synapse = synapse;
+    this.workingDir = workingDir;
   }
 
   private log(method: string, message: string): void {
@@ -41,6 +44,7 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log("createFile", `Creating file at path: ${filePath}`);
+      const fullPath = path.join(this.workingDir, filePath);
 
       const dirPath = path.dirname(filePath);
       this.log("createFile", `Ensuring directory exists: ${dirPath}`);
@@ -48,7 +52,7 @@ export class Filesystem {
       await this.createFolder(dirPath);
 
       this.log("createFile", "Writing file content...");
-      await fs.writeFile(filePath, content);
+      await fs.writeFile(fullPath, content);
 
       this.log("createFile", "File created successfully");
       return { success: true };
@@ -73,8 +77,9 @@ export class Filesystem {
   async getFile(filePath: string): Promise<FileOperationResult> {
     try {
       this.log("getFile", `Reading file at path: ${filePath}`);
+      const fullPath = path.join(this.workingDir, filePath);
 
-      const data = await fs.readFile(filePath, "utf-8");
+      const data = await fs.readFile(fullPath, "utf-8");
 
       this.log("getFile", "File read successfully");
       return { success: true, data };
@@ -103,6 +108,7 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log("updateFile", `Updating file at path: ${filePath}`);
+      const fullPath = path.join(this.workingDir, filePath);
 
       const dirPath = path.dirname(filePath);
       this.log("updateFile", `Ensuring directory exists: ${dirPath}`);
@@ -110,7 +116,7 @@ export class Filesystem {
       await this.createFolder(dirPath);
 
       this.log("updateFile", "Writing file content...");
-      await fs.writeFile(filePath, content);
+      await fs.writeFile(fullPath, content);
 
       this.log("updateFile", "File updated successfully");
       return { success: true };
@@ -139,8 +145,10 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log("updateFilePath", `Moving file from ${oldPath} to ${newPath}`);
+      const fullOldPath = path.join(this.workingDir, oldPath);
+      const fullNewPath = path.join(this.workingDir, newPath);
 
-      await fs.rename(oldPath, newPath);
+      await fs.rename(fullOldPath, fullNewPath);
 
       this.log("updateFilePath", "File moved successfully");
       return { success: true };
@@ -165,8 +173,9 @@ export class Filesystem {
   async deleteFile(filePath: string): Promise<FileOperationResult> {
     try {
       this.log("deleteFile", `Deleting file at path: ${filePath}`);
+      const fullPath = path.join(this.workingDir, filePath);
 
-      await fs.unlink(filePath);
+      await fs.unlink(fullPath);
 
       this.log("deleteFile", "File deleted successfully");
       return { success: true };
@@ -191,8 +200,9 @@ export class Filesystem {
   async createFolder(dirPath: string): Promise<FileOperationResult> {
     try {
       this.log("createFolder", `Creating directory at path: ${dirPath}`);
+      const fullPath = path.join(this.workingDir, dirPath);
 
-      await fs.mkdir(dirPath, { recursive: true });
+      await fs.mkdir(fullPath, { recursive: true });
 
       this.log("createFolder", "Directory created successfully");
       return { success: true };
@@ -217,8 +227,9 @@ export class Filesystem {
   async getFolder(dirPath: string): Promise<FileOperationResult> {
     try {
       this.log("getFolder", `Reading directory at path: ${dirPath}`);
+      const fullPath = path.join(this.workingDir, dirPath);
 
-      const items = await fs.readdir(dirPath, { withFileTypes: true });
+      const items = await fs.readdir(fullPath, { withFileTypes: true });
       const data: FileItem[] = items.map((item) => ({
         name: item.name,
         isDirectory: item.isDirectory(),
@@ -251,11 +262,12 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log("updateFolderName", `Renaming folder at ${dirPath} to ${name}`);
+      const fullPath = path.join(this.workingDir, dirPath);
 
-      const dir = path.dirname(dirPath);
+      const dir = path.dirname(fullPath);
       const newPath = path.join(dir, name);
 
-      await fs.rename(dirPath, newPath);
+      await fs.rename(fullPath, newPath);
 
       this.log("updateFolderName", "Folder renamed successfully");
       return { success: true };
@@ -287,8 +299,10 @@ export class Filesystem {
         "updateFolderPath",
         `Moving folder from ${oldPath} to ${newPath}`,
       );
+      const fullOldPath = path.join(this.workingDir, oldPath);
+      const fullNewPath = path.join(this.workingDir, newPath);
 
-      await fs.rename(oldPath, newPath);
+      await fs.rename(fullOldPath, fullNewPath);
 
       this.log("updateFolderPath", "Folder moved successfully");
       return { success: true };
@@ -313,8 +327,9 @@ export class Filesystem {
   async deleteFolder(dirPath: string): Promise<FileOperationResult> {
     try {
       this.log("deleteFolder", `Deleting folder at path: ${dirPath}`);
+      const fullPath = path.join(this.workingDir, dirPath);
 
-      await fs.rm(dirPath, { recursive: true, force: true });
+      await fs.rm(fullPath, { recursive: true, force: true });
 
       this.log("deleteFolder", "Folder deleted successfully");
       return { success: true };
