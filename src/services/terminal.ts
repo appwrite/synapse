@@ -16,23 +16,6 @@ export class Terminal {
     null;
   private isAlive: boolean = false;
   private initializationError: Error | null = null;
-  private lastCommand: string | null = null;
-
-  /**
-   * Strips ANSI escape sequences and control characters from a string
-   * @param str - The string to clean
-   * @returns The cleaned string
-   */
-  private stripAnsi(str: string): string {
-    return str
-      .replace(
-        /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
-        "",
-      )
-      .replace(/\r/g, "") // Remove carriage returns
-      .replace(/\u001b\[?[0-9;]*[A-Za-z]/g, "") // Remove cursor movements
-      .replace(/\u001b\[\?[0-9;]*[A-Za-z]/g, ""); // Remove terminal mode commands
-  }
 
   /**
    * Creates a new Terminal instance
@@ -141,7 +124,6 @@ export class Terminal {
         command += "\n";
       }
 
-      this.lastCommand = command;
       this.term?.write(command);
     } catch (error) {
       console.error("Failed to execute command:", error);
@@ -154,15 +136,6 @@ export class Terminal {
    */
   onData(callback: (success: boolean, data: string) => void): void {
     this.onDataCallback = (success: boolean, data: string) => {
-      const cleanData = this.stripAnsi(data);
-      const cleanCommand = this.lastCommand
-        ? this.stripAnsi(this.lastCommand)
-        : null;
-
-      if (cleanCommand && cleanData === cleanCommand) {
-        return;
-      }
-
       callback(success, data);
     };
 
