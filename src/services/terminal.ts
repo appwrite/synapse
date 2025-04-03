@@ -16,6 +16,7 @@ export class Terminal {
     null;
   private isAlive: boolean = false;
   private initializationError: Error | null = null;
+  private lastCommand: string = "";
 
   /**
    * Creates a new Terminal instance
@@ -135,6 +136,7 @@ export class Terminal {
     );
     try {
       this.checkTerminal();
+      this.lastCommand = command.trim();
       this.term?.write(command);
     } catch (error) {
       console.error("Failed to execute command:", error);
@@ -148,14 +150,20 @@ export class Terminal {
 
   /**
    * Cleans terminal output data by removing ANSI escape sequences, carriage returns, and extra whitespace
+   * Also filters out the echoed command from the output
    * @param data - The raw terminal output data
    * @returns The cleaned data string
    */
   private cleanData(data: string): string {
-    return data
+    let cleaned = data
       .replace(/\u001b\[[0-9;?]*[a-zA-Z]/g, "") // Remove ANSI escape sequences
-      .replace(/\r/g, "") // Remove carriage returns
-      .trim(); // Trim whitespace
+      .replace(/\r/g, ""); // Remove carriage returns
+
+    if (this.lastCommand && cleaned.trim().startsWith(this.lastCommand)) {
+      cleaned = cleaned.slice(this.lastCommand.length);
+    }
+
+    return cleaned.trim();
   }
 
   /**
