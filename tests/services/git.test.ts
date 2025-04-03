@@ -13,6 +13,10 @@ jest.mock("fs", () => {
     ...actual,
     existsSync: jest.fn(),
     statSync: jest.fn(),
+    promises: {
+      ...actual.promises,
+      access: jest.fn(() => Promise.resolve()),
+    },
   };
 });
 
