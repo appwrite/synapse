@@ -15,7 +15,6 @@ export class Terminal {
     null;
   private isAlive: boolean = false;
   private initializationError: Error | null = null;
-  private lastCommand: string | null = null;
 
   /**
    * Creates a new Terminal instance
@@ -83,17 +82,6 @@ export class Terminal {
     console.log(`[Terminal][${timestamp}] ${message}`);
   }
 
-  private stripAnsi(str: string): string {
-    return str
-      .replace(
-        /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
-        "",
-      ) // Remove ANSI escape sequences
-      .replace(/\r/g, "") // Remove carriage returns
-      .replace(/\u001b\[?[0-9;]*[A-Za-z]/g, "") // Remove cursor movements
-      .replace(/\u001b\[\?[0-9;]*[A-Za-z]/g, ""); // Remove terminal mode commands
-  }
-
   private checkTerminal(): void {
     if (!this.isAlive || !this.term) {
       throw new Error("Terminal is not alive or has been terminated");
@@ -131,8 +119,6 @@ export class Terminal {
       this.checkTerminal();
       this.log(`Writing command: ${command}`);
 
-      this.lastCommand = command;
-
       // Ensure command ends with newline
       if (!command.endsWith("\n")) {
         command += "\n";
@@ -150,15 +136,6 @@ export class Terminal {
    */
   onData(callback: (success: boolean, data: string) => void): void {
     this.onDataCallback = (success: boolean, data: string) => {
-      const cleanData = this.stripAnsi(data);
-      const cleanCommand = this.lastCommand
-        ? this.stripAnsi(this.lastCommand)
-        : null;
-
-      if (cleanCommand && cleanData === cleanCommand) {
-        return;
-      }
-
       callback(success, data);
     };
 
