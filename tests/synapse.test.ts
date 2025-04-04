@@ -63,15 +63,63 @@ describe("Synapse", () => {
   });
 
   describe("http server connection", () => {
-    it("should respond with 404 for regular HTTP requests", async () => {
-      const synapse = new Synapse("localhost", 8081);
-      await synapse.listen();
+    let synapse: Synapse;
 
+    beforeAll(async () => {
+      synapse = new Synapse("localhost", 8081);
+      await synapse.listen();
+    });
+
+    afterAll(async () => {
+      await synapse.close();
+    });
+
+    it("should respond with 404 for regular HTTP requests", async () => {
       const response = await fetch("http://localhost:8081");
       expect(response.status).toBe(404);
-      expect(await response.text()).toBe("Not found");
+      expect(await response.text()).toBe(
+        '{"success":false,"error":"Not found"}',
+      );
+    });
 
-      await synapse.close();
+    it("should handle POST requests successfully", async () => {
+      const handler = jest.fn().mockResolvedValue({ result: "success" });
+      synapse.onMessageType("test", handler);
+
+      const response = await fetch("http://localhost:8081/test/operation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: "test" }),
+      });
+
+      expect(response.status).toBe(200);
+      const result = await response.json();
+      expect(result).toEqual({ result: "success" });
+      expect(handler).toHaveBeenCalledWith({
+        type: "test",
+        requestId: expect.any(String),
+        operation: "operation",
+        params: { data: "test" },
+      });
+    });
+
+    it("should handle GET requests with query parameters", async () => {
+      const handler = jest.fn().mockResolvedValue({ result: "success" });
+      synapse.onMessageType("test", handler);
+
+      const response = await fetch(
+        "http://localhost:8081/test/operation?param=value",
+      );
+
+      expect(response.status).toBe(200);
+      const result = await response.json();
+      expect(result).toEqual({ result: "success" });
+      expect(handler).toHaveBeenCalledWith({
+        type: "test",
+        requestId: expect.any(String),
+        operation: "operation",
+        params: { param: "value" },
+      });
     });
   });
 
