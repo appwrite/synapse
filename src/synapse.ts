@@ -1,7 +1,6 @@
 import { IncomingMessage, Server, ServerResponse, createServer } from "http";
-import { json, send, serve } from "micro";
+import { send, serve } from "micro";
 import { Socket } from "net";
-import { URL } from "url";
 import WebSocket, { WebSocketServer } from "ws";
 
 export type MessagePayload = {
@@ -10,7 +9,7 @@ export type MessagePayload = {
   [key: string]: string | Record<string, unknown>;
 };
 
-export type MessageHandler = (message: MessagePayload) => Promise<any>;
+export type MessageHandler = (message: MessagePayload) => void;
 export type ConnectionCallback = () => void;
 export type ErrorCallback = (error: Error) => void;
 export type Logger = (message: string) => void;
@@ -55,92 +54,12 @@ class Synapse {
     const handler = serve(async (req: IncomingMessage, res: ServerResponse) => {
       this.log(`HTTP Request received: ${req.method} ${req.url}`);
 
-      // Handle WebSocket upgrade requests
       if (req.headers.upgrade?.toLowerCase() === "websocket" && req.socket) {
         this.handleUpgrade(req, req.socket, Buffer.alloc(0));
         return;
       }
 
-      try {
-        // Handle HTTP requests
-        if (req.url) {
-          const url = new URL(req.url, `http://${req.headers.host}`);
-          const path = url.pathname;
-
-          const pathParts = path.split("/").filter((part) => part);
-
-          if (pathParts.length >= 2) {
-            const service = pathParts[0];
-            const operation = pathParts[1];
-
-            if (this.messageHandlers[service]) {
-              if (req.method === "POST") {
-                // For POST requests, get the body data
-                const body = await json(req);
-
-                const message: MessagePayload = {
-                  type: service,
-                  requestId: Date.now().toString(),
-                  operation: operation,
-                  params: (body || {}) as Record<string, unknown>,
-                };
-
-                try {
-                  const result = await this.messageHandlers[service](message);
-                  return send(res, 200, result || { success: true });
-                } catch (error) {
-                  const errorMessage =
-                    error instanceof Error ? error.message : "Unknown error";
-                  return send(res, 400, {
-                    success: false,
-                    error: errorMessage,
-                  });
-                }
-              } else if (req.method === "GET") {
-                // For GET requests, use query parameters
-                const params: Record<string, string> = {};
-                url.searchParams.forEach((value, key) => {
-                  params[key] = value;
-                });
-
-                const message: MessagePayload = {
-                  type: service,
-                  requestId: Date.now().toString(),
-                  operation: operation,
-                  params: params,
-                };
-
-                try {
-                  const result = await this.messageHandlers[service](message);
-                  return send(res, 200, result || { success: true });
-                } catch (error) {
-                  const errorMessage =
-                    error instanceof Error ? error.message : "Unknown error";
-                  return send(res, 400, {
-                    success: false,
-                    error: errorMessage,
-                  });
-                }
-              } else {
-                return send(res, 405, {
-                  success: false,
-                  error: "Method not allowed",
-                });
-              }
-            }
-          }
-        }
-
-        return send(res, 404, { success: false, error: "Not found" });
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-        this.log(`HTTP error: ${errorMessage}`);
-        return send(res, 500, {
-          success: false,
-          error: "Internal server error",
-        });
-      }
+      return send(res, 404, "Not found");
     });
 
     this.server = createServer(handler);
@@ -219,7 +138,7 @@ class Synapse {
     this.reconnectAttempts = this.maxReconnectAttempts;
   }
 
-  private async handleMessage(event: WebSocket.MessageEvent): Promise<void> {
+  private handleMessage(event: WebSocket.MessageEvent): void {
     try {
       const data = event.data as string;
 
@@ -231,16 +150,7 @@ class Synapse {
       const message: MessagePayload = JSON.parse(data);
 
       if (this.messageHandlers[message.type]) {
-        const result = await this.messageHandlers[message.type](message);
-        if (result !== null && this.ws) {
-          this.ws.send(
-            JSON.stringify({
-              type: `${message.type}Response`,
-              requestId: message.requestId,
-              ...result,
-            }),
-          );
-        }
+        this.messageHandlers[message.type](message);
       }
     } catch (error) {
       const errorMessage =
@@ -248,22 +158,6 @@ class Synapse {
       this.log(
         `Message parsing error: ${errorMessage}. Raw message: ${event.data}`,
       );
-
-      if (this.ws) {
-        try {
-          const message = JSON.parse(event.data as string);
-          this.ws.send(
-            JSON.stringify({
-              type: `${message.type}Response`,
-              requestId: message.requestId,
-              success: false,
-              error: errorMessage,
-            }),
-          );
-        } catch {
-          // If we can't parse the original message, we can't send a proper response
-        }
-      }
     }
   }
 
@@ -348,6 +242,18 @@ class Synapse {
   }
 
   /**
+   * Sends a command to the terminal for execution
+   * @param command - The command string to execute
+   * @returns A promise that resolves with the message payload
+   */
+  sendCommand(command: string): Promise<MessagePayload> {
+    return this.send("terminal", {
+      operation: "createCommand",
+      params: { command },
+    });
+  }
+
+  /**
    * Registers a callback for when the WebSocket connection is established
    * @param callback - Function to be called when connection opens
    * @returns The Synapse instance for method chaining
@@ -378,7 +284,7 @@ class Synapse {
   }
 
   /**
-   * Registers a handler for specific message types received through WebSocket and HTTP
+   * Registers a handler for specific message types received through WebSocket
    * @param type - The message type to handle
    * @param handler - Function to handle messages of the specified type
    * @returns The Synapse instance for method chaining
