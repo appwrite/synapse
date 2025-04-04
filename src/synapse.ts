@@ -1,4 +1,5 @@
-import { IncomingMessage } from "http";
+import { IncomingMessage, Server, ServerResponse, createServer } from "http";
+import { send, serve } from "micro";
 import { Socket } from "net";
 import WebSocket, { WebSocketServer } from "ws";
 
@@ -29,6 +30,7 @@ class Synapse {
   private reconnectInterval = 3000;
   private lastPath: string | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
+  private server: Server | null = null;
 
   private host: string;
   private port: number;
@@ -43,10 +45,30 @@ class Synapse {
     this.host = host;
     this.port = port;
     this.workDir = workDir;
+
     this.wss = new WebSocketServer({ noServer: true });
     this.wss.on("connection", (ws: WebSocket) => {
       this.setupWebSocket(ws);
     });
+
+    const handler = serve(async (req: IncomingMessage, res: ServerResponse) => {
+      this.log(`HTTP Request received: ${req.method} ${req.url}`);
+
+      if (req.headers.upgrade?.toLowerCase() === "websocket" && req.socket) {
+        this.handleUpgrade(req, req.socket, Buffer.alloc(0));
+        return;
+      }
+
+      return send(res, 404, "Not found");
+    });
+
+    this.server = createServer(handler);
+
+    if (this.server) {
+      this.server.on("connection", (socket: Socket) => {
+        this.log(`New connection from ${socket.remoteAddress}`);
+      });
+    }
   }
 
   private log(message: string): void {
@@ -293,6 +315,49 @@ class Synapse {
   }
 
   /**
+   * Starts the HTTP/WebSocket server
+   * @returns Promise that resolves when the server is listening
+   */
+  public listen(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.server) {
+        reject(new Error("Server not initialized"));
+        return;
+      }
+
+      this.server
+        .listen(this.port, this.host, () => {
+          this.log(`Server running on ${this.host}:${this.port}`);
+          resolve();
+        })
+        .on("error", (error) => {
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * Stops the HTTP/WebSocket server and closes all connections
+   */
+  public close(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.server) {
+        resolve();
+        return;
+      }
+
+      this.server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        this.server = null;
+        resolve();
+      });
+    });
+  }
+
+  /**
    * Closes the WebSocket connection
    */
   disconnect(): void {
@@ -301,6 +366,9 @@ class Synapse {
       this.ws.close();
       this.ws = null;
     }
+    this.close().catch((error) => {
+      this.log(`Error closing server: ${error.message}`);
+    });
     this.wss.close();
   }
 }
