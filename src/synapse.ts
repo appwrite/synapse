@@ -1,8 +1,8 @@
+import fs from "fs";
 import { IncomingMessage, Server, ServerResponse, createServer } from "http";
 import { send, serve } from "micro";
 import { Socket } from "net";
 import WebSocket, { WebSocketServer } from "ws";
-
 export type MessagePayload = {
   type: string;
   requestId: string;
@@ -44,6 +44,10 @@ class Synapse {
   ) {
     this.host = host;
     this.port = port;
+
+    if (!fs.existsSync(workDir)) {
+      fs.mkdirSync(workDir, { recursive: true });
+    }
     this.workDir = workDir;
 
     this.wss = new WebSocketServer({ noServer: true });

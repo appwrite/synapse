@@ -75,7 +75,6 @@ describe("Terminal", () => {
         shell: "zsh",
         cols: 100,
         rows: 30,
-        workdir: "/custom/path",
       };
 
       const customTerminal = new Terminal(mockSynapse, customOptions);
