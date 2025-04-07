@@ -31,7 +31,14 @@ describe("Git Service", () => {
     jest.spyOn(process, "cwd").mockReturnValue(mockWorkingDir);
     (fs.existsSync as jest.Mock).mockReturnValue(false);
     (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
-    mockSynapse = {} as jest.Mocked<Synapse>;
+
+    mockSynapse = {
+      workDir: mockWorkingDir,
+      updateWorkDir: jest.fn((dir: string) => {
+        mockSynapse.workDir = dir;
+        return { success: true, data: "Work directory updated successfully" };
+      }),
+    } as unknown as jest.Mocked<Synapse>;
     mockSpawn = spawn as jest.Mock;
     git = new Git(mockSynapse);
   });
@@ -82,10 +89,41 @@ describe("Git Service", () => {
 
     it("error - repository exists", async () => {
       (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.existsSync as jest.Mock).mockImplementation(function (
+        this: unknown,
+        ...args: unknown[]
+      ): boolean {
+        const path = args[0] as string;
+        return path.includes(".git");
+      });
       expect(await git.init()).toEqual({
         success: false,
         error: "Git repository already exists in this directory",
       });
+    });
+
+    it("success - change workDir", async () => {
+      // First ensure no git repo exists
+      (fs.existsSync as jest.Mock).mockImplementation(function (
+        this: unknown,
+        ...args: unknown[]
+      ): boolean {
+        return false;
+      });
+      setupMockProcess("Initialized empty Git repository");
+
+      // Change workDir
+      mockSynapse.updateWorkDir("/workspace/another-project");
+
+      // Now init should succeed
+      const secondInit = await git.init();
+      expect(secondInit).toEqual({
+        success: true,
+        data: "Initialized empty Git repository",
+      });
+
+      // Verify workDir was changed
+      expect(mockSynapse.workDir).toBe("/workspace/another-project");
     });
   });
 
