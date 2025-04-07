@@ -116,6 +116,12 @@ class Synapse {
   private handleMessage(event: WebSocket.MessageEvent): void {
     try {
       const data = event.data as string;
+
+      if (data === "ping" && this.ws) {
+        this.ws.send("pong");
+        return;
+      }
+
       const message: MessagePayload = JSON.parse(data);
 
       if (this.messageHandlers[message.type]) {
