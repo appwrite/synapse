@@ -1,6 +1,5 @@
 import { IncomingMessage } from "http";
 import { Socket } from "net";
-import fetch from "node-fetch";
 import WebSocket, { WebSocketServer } from "ws";
 import { Synapse } from "../src/synapse";
 
@@ -59,19 +58,6 @@ describe("Synapse", () => {
       );
 
       await expect(connectPromise).rejects.toThrow("WebSocket error");
-    });
-  });
-
-  describe("http server connection", () => {
-    it("should respond with 404 for regular HTTP requests", async () => {
-      const synapse = new Synapse("localhost", 8081);
-      await synapse.listen();
-
-      const response = await fetch("http://localhost:8081");
-      expect(response.status).toBe(404);
-      expect(await response.text()).toBe("Not found");
-
-      await synapse.close();
     });
   });
 

@@ -1,8 +1,9 @@
 import fs from "fs";
-import { IncomingMessage, Server, ServerResponse, createServer } from "http";
-import { send, serve } from "micro";
+import { IncomingMessage } from "http";
 import { Socket } from "net";
 import WebSocket, { WebSocketServer } from "ws";
+import { Terminal } from "./services/terminal";
+
 export type MessagePayload = {
   type: string;
   requestId: string;
@@ -24,13 +25,14 @@ class Synapse {
     onError: (() => {}) as ErrorCallback,
   };
 
+  private terminals: Set<Terminal> = new Set();
+
   private isReconnecting = false;
   private maxReconnectAttempts = 5;
   private reconnectAttempts = 0;
   private reconnectInterval = 3000;
   private lastPath: string | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
-  private server: Server | null = null;
 
   private host: string;
   private port: number;
@@ -54,25 +56,6 @@ class Synapse {
     this.wss.on("connection", (ws: WebSocket) => {
       this.setupWebSocket(ws);
     });
-
-    const handler = serve(async (req: IncomingMessage, res: ServerResponse) => {
-      this.log(`HTTP Request received: ${req.method} ${req.url}`);
-
-      if (req.headers.upgrade?.toLowerCase() === "websocket" && req.socket) {
-        this.handleUpgrade(req, req.socket, Buffer.alloc(0));
-        return;
-      }
-
-      return send(res, 404, "Not found");
-    });
-
-    this.server = createServer(handler);
-
-    if (this.server) {
-      this.server.on("connection", (socket: Socket) => {
-        this.log(`New connection from ${socket.remoteAddress}`);
-      });
-    }
   }
 
   private log(message: string): void {
@@ -152,12 +135,37 @@ class Synapse {
   }
 
   /**
+   * Registers a terminal instance with Synapse
+   * @param terminal - The terminal instance to register
+   */
+  registerTerminal(terminal: Terminal): void {
+    this.terminals.add(terminal);
+  }
+
+  /**
+   * Unregisters a terminal instance from Synapse
+   * @param terminal - The terminal instance to unregister
+   */
+  unregisterTerminal(terminal: Terminal): void {
+    this.terminals.delete(terminal);
+  }
+
+  /**
    * Sets the working directory for the Synapse instance
    * @param workDir - The path to the working directory
    * @returns void
    */
-  setWorkDir(workDir: string): void {
+  updateWorkDir(workDir: string): { success: boolean; data: string } {
     this.workDir = workDir;
+    this.terminals.forEach((terminal) => {
+      if (terminal.isTerminalAlive()) {
+        terminal.updateWorkDir(workDir);
+      }
+    });
+    return {
+      success: true,
+      data: "Work directory updated successfully",
+    };
   }
 
   /**
@@ -323,49 +331,6 @@ class Synapse {
   }
 
   /**
-   * Starts the HTTP/WebSocket server
-   * @returns Promise that resolves when the server is listening
-   */
-  listen(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.server) {
-        reject(new Error("Server not initialized"));
-        return;
-      }
-
-      this.server
-        .listen(this.port, this.host, () => {
-          this.log(`Server running on ${this.host}:${this.port}`);
-          resolve();
-        })
-        .on("error", (error) => {
-          reject(error);
-        });
-    });
-  }
-
-  /**
-   * Stops the HTTP/WebSocket server and closes all connections
-   */
-  close(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.server) {
-        resolve();
-        return;
-      }
-
-      this.server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        this.server = null;
-        resolve();
-      });
-    });
-  }
-
-  /**
    * Closes the WebSocket connection
    */
   disconnect(): void {
@@ -374,9 +339,6 @@ class Synapse {
       this.ws.close();
       this.ws = null;
     }
-    this.close().catch((error) => {
-      this.log(`Error closing server: ${error.message}`);
-    });
     this.wss.close();
   }
 }

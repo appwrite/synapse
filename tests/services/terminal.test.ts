@@ -62,6 +62,11 @@ describe("Terminal", () => {
       terminal = new Terminal(mockSynapse);
     });
 
+    it("should update working directory", () => {
+      terminal.updateWorkDir("/new/path");
+      expect(mockPty.write).toHaveBeenCalledWith('cd "/new/path"\n');
+    });
+
     it("should not operate when terminal is dead", () => {
       terminal.kill();
       terminal.updateSize(80, 24);

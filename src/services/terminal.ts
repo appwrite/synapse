@@ -30,6 +30,7 @@ export class Terminal {
     },
   ) {
     this.synapse = synapse;
+    this.synapse.registerTerminal(this);
 
     try {
       this.term = pty.spawn(terminalOptions.shell, [], {
@@ -148,6 +149,20 @@ export class Terminal {
   }
 
   /**
+   * Updates the working directory of the terminal
+   * @param workDir - The new working directory
+   */
+  updateWorkDir(workDir: string): void {
+    try {
+      this.checkTerminal();
+      // Send cd command to change directory
+      this.createCommand(`cd "${workDir}"`);
+    } catch (error) {
+      console.error("Failed to update working directory:", error);
+    }
+  }
+
+  /**
    * Kills the terminal
    */
   kill(): void {
@@ -156,6 +171,7 @@ export class Terminal {
       this.term.kill();
       this.isAlive = false;
       this.term = null;
+      this.synapse.unregisterTerminal(this);
     }
   }
 
