@@ -130,27 +130,9 @@ class Synapse {
     }, this.reconnectInterval);
   }
 
-  /**
-   * Cancels the reconnection process
-   */
-  public cancelReconnect(): void {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-    this.isReconnecting = false;
-    this.reconnectAttempts = this.maxReconnectAttempts;
-  }
-
   private handleMessage(event: WebSocket.MessageEvent): void {
     try {
       const data = event.data as string;
-
-      if (data === "ping" && this.ws) {
-        this.ws.send("pong");
-        return;
-      }
-
       const message: MessagePayload = JSON.parse(data);
 
       if (this.messageHandlers[message.type]) {
@@ -167,6 +149,28 @@ class Synapse {
 
   private buildWebSocketUrl(path: string): string {
     return `ws://${this.host}:${this.port}${path}`;
+  }
+
+  /**
+   * Sets the working directory for the Synapse instance
+   * @param workDir - The path to the working directory
+   * @returns void
+   */
+  setWorkDir(workDir: string): void {
+    this.workDir = workDir;
+  }
+
+  /**
+   * Cancels the reconnection process
+   * @returns void
+   */
+  cancelReconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    this.isReconnecting = false;
+    this.reconnectAttempts = this.maxReconnectAttempts;
   }
 
   /**
@@ -322,7 +326,7 @@ class Synapse {
    * Starts the HTTP/WebSocket server
    * @returns Promise that resolves when the server is listening
    */
-  public listen(): Promise<void> {
+  listen(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.server) {
         reject(new Error("Server not initialized"));
@@ -343,7 +347,7 @@ class Synapse {
   /**
    * Stops the HTTP/WebSocket server and closes all connections
    */
-  public close(): Promise<void> {
+  close(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.server) {
         resolve();
