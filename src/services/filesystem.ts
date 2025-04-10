@@ -46,10 +46,10 @@ export class Filesystem {
 
     try {
       await fs.access(fullPath, fsConstants.F_OK);
-      const errorMsg = `File already exists at path: ${filePath}`;
-      this.log(`Error: ${errorMsg}`);
+      const errorMsg = `File already exists at path: `;
+      this.log(`Error: ${errorMsg} ${fullPath}`);
 
-      return { success: false, error: errorMsg }; // file already exists
+      return { success: false, error: `${errorMsg} ${filePath}` }; // file already exists
     } catch (accessError: any) {
       if (accessError?.code === "ENOENT") {
         try {
