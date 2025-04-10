@@ -15,6 +15,7 @@ describe("Filesystem", () => {
     } as unknown as Synapse);
 
     filesystem = new Filesystem(mockSynapse);
+    jest.clearAllMocks();
   });
 
   describe("createFile", () => {
@@ -22,25 +23,52 @@ describe("Filesystem", () => {
       const filePath = "/file.txt";
       const content = "test content";
 
-      (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
+      // Mock access to indicate file does NOT exist initially
+      const accessError = new Error("ENOENT") as NodeJS.ErrnoException;
+      accessError.code = "ENOENT";
+      (fs.access as jest.Mock).mockRejectedValue(accessError);
+      (fs.mkdir as jest.Mock).mockResolvedValue(undefined); // Assuming createFolder is called
       (fs.writeFile as jest.Mock).mockResolvedValue(undefined);
 
       const result = await filesystem.createFile(filePath, content);
-      expect(result).toEqual({ success: true });
+      expect(result).toEqual({
+        success: true,
+        data: "File created successfully",
+      });
     });
 
-    it("should handle file creation errors", async () => {
+    it("should return error if file already exists", async () => {
+      const filePath = "/existing.txt";
+      const content = "test content";
+
+      // Mock access to indicate file DOES exist
+      (fs.access as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await filesystem.createFile(filePath, content);
+      expect(fs.writeFile).not.toHaveBeenCalled(); // Should not attempt to write
+      expect(result).toEqual({
+        success: false,
+        error: `File already exists at path: ${filePath}`,
+      });
+    });
+
+    it("should handle file creation errors during write", async () => {
       const filePath = "/test/error.txt";
       const content = "test content";
 
+      // Mock access to indicate file does NOT exist initially
+      const accessError = new Error("ENOENT") as NodeJS.ErrnoException;
+      accessError.code = "ENOENT";
+      (fs.access as jest.Mock).mockRejectedValue(accessError);
+      (fs.mkdir as jest.Mock).mockResolvedValue(undefined); // Mock directory creation
       (fs.writeFile as jest.Mock).mockRejectedValue(
-        new Error("Failed to create file"),
+        new Error("Failed to write file"),
       );
 
       const result = await filesystem.createFile(filePath, content);
       expect(result).toEqual({
         success: false,
-        error: "Failed to create file",
+        error: "Failed to write file",
       });
     });
   });

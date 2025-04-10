@@ -1,3 +1,4 @@
+import { constants as fsConstants } from "fs";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { Synapse } from "../synapse";
@@ -30,33 +31,65 @@ export class Filesystem {
   }
 
   /**
-   * Creates a new file at the specified path with optional content
+   * Creates a new file at the specified path with optional content.
+   * Fails if the file already exists.
    * @param filePath - The full path where the file should be created
    * @param content - Optional content to write to the file (defaults to empty string)
    * @returns Promise<FileOperationResult> indicating success or failure
-   * @throws Error if file creation fails
+   * @throws Error if file creation fails for reasons other than existence
    */
   async createFile(
     filePath: string,
     content: string = "",
   ): Promise<FileOperationResult> {
+    const fullPath = path.join(this.synapse.workDir, filePath);
+
     try {
-      this.log(`Creating file at path: ${filePath}`);
-      const fullPath = path.join(this.synapse.workDir, filePath);
-      const dirPath = path.dirname(filePath);
+      await fs.access(fullPath, fsConstants.F_OK);
+      const errorMsg = `File already exists at path: ${filePath}`;
+      this.log(`Error: ${errorMsg}`);
 
-      await this.createFolder(dirPath);
-      await fs.writeFile(fullPath, content);
+      return { success: false, error: errorMsg }; // file already exists
+    } catch (accessError: any) {
+      if (accessError?.code === "ENOENT") {
+        try {
+          const dirPath = path.dirname(filePath);
+          const folderResult = await this.createFolder(dirPath);
+          if (!folderResult.success) {
+            this.log(
+              `Failed to create parent directory for ${filePath}: ${folderResult.error}`,
+            );
 
-      return { success: true };
-    } catch (error) {
-      this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+            return { success: false, error: folderResult.error }; // failed to create parent directory
+          }
+          await fs.writeFile(fullPath, content, { flag: "wx" });
+
+          return { success: true, data: "File created successfully" }; // file created successfully
+        } catch (writeError: any) {
+          const errorMsg =
+            writeError instanceof Error
+              ? writeError.message
+              : String(writeError);
+          this.log(`Error during file write: ${errorMsg}`);
+          if (writeError?.code === "EEXIST") {
+            // file already exists
+            return {
+              success: false,
+              error: `File already exists at path: ${filePath}`,
+            };
+          }
+
+          return { success: false, error: errorMsg }; // failed to write file
+        }
+      } else {
+        const errorMsg =
+          accessError instanceof Error
+            ? accessError.message
+            : String(accessError);
+        this.log(`Error accessing path ${filePath}: ${errorMsg}`);
+
+        return { success: false, error: errorMsg }; // failed to access path
+      }
     }
   }
 
@@ -68,7 +101,6 @@ export class Filesystem {
    */
   async getFile(filePath: string): Promise<FileOperationResult> {
     try {
-      this.log(`Reading file at path: ${filePath}`);
       const fullPath = path.join(this.synapse.workDir, filePath);
 
       const data = await fs.readFile(fullPath, "utf-8");
@@ -178,20 +210,26 @@ export class Filesystem {
    * @throws Error if directory creation fails
    */
   async createFolder(dirPath: string): Promise<FileOperationResult> {
-    try {
-      this.log(`Creating directory at path: ${dirPath}`);
-      const fullPath = path.join(this.synapse.workDir, dirPath);
+    if (dirPath === "." || dirPath === "" || dirPath === "/") {
+      // Skip creation for root or relative '.' path
+      return { success: true };
+    }
 
+    const fullPath = path.join(this.synapse.workDir, dirPath);
+
+    try {
       await fs.mkdir(fullPath, { recursive: true });
 
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Error creating directory at path ${fullPath}: ${errorMsg} (Code: ${error?.code})`,
       );
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
       };
     }
   }
@@ -216,9 +254,12 @@ export class Filesystem {
       return { success: true, data };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Error reading directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -295,7 +336,7 @@ export class Filesystem {
       this.log(`Deleting folder at path: ${dirPath}`);
       const fullPath = path.join(this.synapse.workDir, dirPath);
 
-      await fs.rm(fullPath, { recursive: true, force: true });
+      await fs.rm(fullPath, { recursive: true });
 
       return { success: true };
     } catch (error) {
