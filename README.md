@@ -1,6 +1,6 @@
 # Synapse
 
-Operating system gateway for remote serverless environments. Synapse provides a WebSocket-based interface to interact with terminal sessions, manage files, and monitor system resources remotely.
+Operating system gateway for remote serverless environments. Synapse provides a WebSocket-based interface to interact with terminal sessions, manage files, monitor system resources, perform Git operations, and more.
 
 ## Features
 
@@ -137,17 +137,17 @@ await git.push();
 
 ```typescript
 // Lint and format code
-import { Synapse, CodeStyle } from "@appwrite.io/synapse";
+import { Synapse, Code } from "@appwrite.io/synapse";
 
 const synapse = new Synapse();
-const codeStyle = new CodeStyle(synapse);
+const code = new Code(synapse);
 
 // Format code with specific options
 const code = `function hello(name) {
 return "Hello, " + name;
 }`;
 
-const formatResult = await codeStyle.format(code, {
+const formatResult = await code.format(code, {
   language: "javascript",
   indent: 2,
   singleQuote: true,
@@ -157,7 +157,7 @@ const formatResult = await codeStyle.format(code, {
 console.log("Formatted code:", formatResult.data);
 
 // Lint code for potential issues
-const lintResult = await codeStyle.lint(code, {
+const lintResult = await code.lint(code, {
   language: "javascript",
   rules: {
     semi: "error",

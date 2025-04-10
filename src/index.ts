@@ -1,4 +1,4 @@
-export { CodeStyle } from "./services/codestyle";
+export { Code } from "./services/code";
 export { Filesystem } from "./services/filesystem";
 export { Git } from "./services/git";
 export { System } from "./services/system";
