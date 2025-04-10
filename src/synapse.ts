@@ -162,6 +162,22 @@ class Synapse {
    * @returns void
    */
   updateWorkDir(workDir: string): { success: boolean; data: string } {
+    if (!fs.existsSync(workDir)) {
+      try {
+        fs.mkdirSync(workDir, { recursive: true });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Unknown error creating directory";
+        this.log(`Failed to create work directory: ${errorMessage}`);
+        return {
+          success: false,
+          data: `Failed to create work directory: ${errorMessage}`,
+        };
+      }
+    }
+
     this.workDir = workDir;
     this.terminals.forEach((terminal) => {
       if (terminal.isTerminalAlive()) {
