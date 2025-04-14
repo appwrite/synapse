@@ -46,12 +46,12 @@ export class Filesystem {
 
     try {
       await fs.access(fullPath, fsConstants.F_OK);
-      const errorMsg = `File already exists at path: `;
+      const errorMsg = `File already exists at path:`;
       this.log(`Error: ${errorMsg} ${fullPath}`);
 
       return { success: false, error: `${errorMsg} ${filePath}` }; // file already exists
-    } catch (accessError: any) {
-      if (accessError?.code === "ENOENT") {
+    } catch (accessError: unknown) {
+      if ((accessError as NodeJS.ErrnoException)?.code === "ENOENT") {
         try {
           const dirPath = path.dirname(filePath);
           const folderResult = await this.createFolder(dirPath);
@@ -65,13 +65,13 @@ export class Filesystem {
           await fs.writeFile(fullPath, content, { flag: "wx" });
 
           return { success: true, data: "File created successfully" }; // file created successfully
-        } catch (writeError: any) {
+        } catch (writeError: unknown) {
           const errorMsg =
             writeError instanceof Error
               ? writeError.message
               : String(writeError);
           this.log(`Error during file write: ${errorMsg}`);
-          if (writeError?.code === "EEXIST") {
+          if ((writeError as NodeJS.ErrnoException)?.code === "EEXIST") {
             // file already exists
             return {
               success: false,
@@ -221,10 +221,10 @@ export class Filesystem {
       await fs.mkdir(fullPath, { recursive: true });
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.log(
-        `Error creating directory at path ${fullPath}: ${errorMsg} (Code: ${error?.code})`,
+        `Error creating directory at path ${fullPath}: ${errorMsg} (Code: ${(error as NodeJS.ErrnoException)?.code})`,
       );
 
       return {
