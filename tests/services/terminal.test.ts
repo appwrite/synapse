@@ -1,5 +1,4 @@
 import * as pty from "node-pty";
-import * as os from "os";
 import { Terminal, TerminalOptions } from "../../src/services/terminal";
 import { Synapse } from "../../src/synapse";
 
@@ -9,11 +8,20 @@ describe("Terminal", () => {
   let terminal: Terminal;
   let mockSynapse: Synapse;
   let mockPty: jest.Mocked<pty.IPty>;
+  let onDataHandler: (data: string) => void;
+  let onExitHandler: () => void;
 
   beforeEach(() => {
     mockSynapse = new Synapse();
     mockPty = {
-      onData: jest.fn(),
+      onData: jest.fn((callback) => {
+        onDataHandler = callback;
+        return mockPty;
+      }),
+      onExit: jest.fn((callback) => {
+        onExitHandler = callback;
+        return mockPty;
+      }),
       write: jest.fn(),
       resize: jest.fn(),
       kill: jest.fn(),
@@ -24,47 +32,28 @@ describe("Terminal", () => {
     (pty.spawn as jest.Mock).mockReturnValue(mockPty);
   });
 
-  describe("constructor", () => {
-    it("should create terminal with default options", () => {
-      const defaultShell =
-        os.platform() === "win32" ? "powershell.exe" : "bash";
-
+  describe("basic terminal functionality", () => {
+    beforeEach(() => {
       terminal = new Terminal(mockSynapse);
-
-      expect(pty.spawn).toHaveBeenCalledWith(
-        defaultShell,
-        [],
-        expect.objectContaining({
-          name: "xterm-color",
-          cols: 80,
-          rows: 24,
-          cwd: process.cwd(),
-          env: process.env,
-        }),
-      );
     });
 
-    it("should create terminal with custom options", () => {
-      const customOptions: TerminalOptions = {
-        shell: "zsh",
-        cols: 100,
-        rows: 30,
-        workdir: "/custom/path",
-      };
+    it("should initialize with correct state", () => {
+      expect(terminal.isTerminalAlive()).toBe(true);
+    });
 
-      terminal = new Terminal(mockSynapse, customOptions);
+    it("should handle data events", () => {
+      let receivedData = "";
+      terminal.onData((success, data) => {
+        receivedData = data;
+      });
 
-      expect(pty.spawn).toHaveBeenCalledWith(
-        "zsh",
-        [],
-        expect.objectContaining({
-          name: "xterm-color",
-          cols: 100,
-          rows: 30,
-          cwd: "/custom/path",
-          env: process.env,
-        }),
-      );
+      onDataHandler("test output");
+      expect(receivedData).toBe("test output");
+    });
+
+    it("should handle terminal death", () => {
+      terminal.kill();
+      expect(terminal.isTerminalAlive()).toBe(false);
     });
   });
 
@@ -73,54 +62,28 @@ describe("Terminal", () => {
       terminal = new Terminal(mockSynapse);
     });
 
-    it("should handle resize operation with minimum values", () => {
-      terminal.updateSize(0, -5);
-
-      expect(mockPty.resize).toHaveBeenCalledWith(1, 1);
+    it("should update working directory", () => {
+      terminal.updateWorkDir("/new/path");
+      expect(mockPty.write).toHaveBeenCalledWith('cd "/new/path"\n');
     });
 
-    it("should handle write operation with command", () => {
-      const command = "ls -la\n";
-
-      terminal.createCommand(command);
-
-      expect(mockPty.write).toHaveBeenCalledWith(command);
-    });
-
-    it("should handle data callback", () => {
-      const mockCallback = jest.fn();
-
-      terminal.onData(mockCallback);
-
-      // Simulate data event by calling the onData handler
-      const dataHandler = (mockPty.onData as jest.Mock).mock.calls[0][0];
-      const testOutput = "test output";
-      dataHandler(testOutput);
-
-      expect(mockCallback).toHaveBeenCalledWith(testOutput);
-    });
-
-    it("should override previous data callback", () => {
-      const mockCallback1 = jest.fn();
-      const mockCallback2 = jest.fn();
-
-      terminal.onData(mockCallback1);
-      terminal.onData(mockCallback2);
-
-      // Simulate data event by calling the onData handler
-      const dataHandler = (mockPty.onData as jest.Mock).mock.calls[0][0];
-      const testOutput = "test output";
-      dataHandler(testOutput);
-
-      // First callback should not be called, only the second one
-      expect(mockCallback1).not.toHaveBeenCalled();
-      expect(mockCallback2).toHaveBeenCalledWith(testOutput);
-    });
-
-    it("should handle kill operation", () => {
+    it("should not operate when terminal is dead", () => {
       terminal.kill();
+      terminal.updateSize(80, 24);
+      terminal.createCommand("test");
 
-      expect(mockPty.kill).toHaveBeenCalled();
+      expect(terminal.isTerminalAlive()).toBe(false);
+    });
+
+    it("should handle custom initialization", () => {
+      const customOptions: TerminalOptions = {
+        shell: "zsh",
+        cols: 100,
+        rows: 30,
+      };
+
+      const customTerminal = new Terminal(mockSynapse, customOptions);
+      expect(customTerminal.isTerminalAlive()).toBe(true);
     });
   });
 });

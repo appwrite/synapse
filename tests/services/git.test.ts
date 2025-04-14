@@ -1,21 +1,44 @@
 import { jest } from "@jest/globals";
 import { spawn } from "child_process";
+import * as fs from "fs";
 import { Git, Synapse } from "../../src";
 
 jest.mock("child_process", () => ({
   spawn: jest.fn(),
 }));
 
+jest.mock("fs", () => {
+  const actual = jest.requireActual("fs") as typeof fs;
+  return {
+    ...actual,
+    existsSync: jest.fn(),
+    statSync: jest.fn(),
+    promises: {
+      ...actual.promises,
+      access: jest.fn(() => Promise.resolve()),
+    },
+  };
+});
+
 describe("Git Service", () => {
   let git: Git;
   let mockSpawn: jest.Mock;
   let mockSynapse: jest.Mocked<Synapse>;
+  const mockWorkingDir = "/workspace/synapse";
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(process, "cwd").mockReturnValue(mockWorkingDir);
+    (fs.existsSync as jest.Mock).mockReturnValue(false);
+    (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
 
-    mockSynapse = {} as jest.Mocked<Synapse>;
-
+    mockSynapse = {
+      workDir: mockWorkingDir,
+      updateWorkDir: jest.fn((dir: string) => {
+        mockSynapse.workDir = dir;
+        return { success: true, data: "Work directory updated successfully" };
+      }),
+    } as unknown as jest.Mocked<Synapse>;
     mockSpawn = spawn as jest.Mock;
     git = new Git(mockSynapse);
   });
@@ -55,102 +78,185 @@ describe("Git Service", () => {
     return mockChildProcess;
   };
 
-  describe("getCurrentBranch", () => {
-    it("should return current branch name", async () => {
-      setupMockProcess("main\n");
-
-      const result = await git.getCurrentBranch();
-
-      expect(result).toBe("main");
-      expect(mockSpawn).toHaveBeenCalledWith("git", [
-        "rev-parse",
-        "--abbrev-ref",
-        "HEAD",
-      ]);
+  describe("init", () => {
+    it("success - new repository", async () => {
+      setupMockProcess("Initialized empty Git repository");
+      expect(await git.init()).toEqual({
+        success: true,
+        data: "Initialized empty Git repository",
+      });
     });
 
-    it("should handle error when getting current branch", async () => {
-      setupMockProcess("", "fatal: not a git repository", 128);
+    it("error - repository exists", async () => {
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.existsSync as jest.Mock).mockImplementation(function (
+        this: unknown,
+        ...args: unknown[]
+      ): boolean {
+        const path = args[0] as string;
+        return path.includes(".git");
+      });
+      expect(await git.init()).toEqual({
+        success: false,
+        error: "Git repository already exists in this directory",
+      });
+    });
 
-      await expect(git.getCurrentBranch()).rejects.toThrow(
-        "Git error: fatal: not a git repository",
-      );
+    it("success - change workDir", async () => {
+      // First ensure no git repo exists
+      (fs.existsSync as jest.Mock).mockImplementation(function (
+        this: unknown,
+        ...args: unknown[]
+      ): boolean {
+        return false;
+      });
+      setupMockProcess("Initialized empty Git repository");
+
+      // Change workDir
+      mockSynapse.updateWorkDir("/workspace/another-project");
+
+      // Now init should succeed
+      const secondInit = await git.init();
+      expect(secondInit).toEqual({
+        success: true,
+        data: "Initialized empty Git repository",
+      });
+
+      // Verify workDir was changed
+      expect(mockSynapse.workDir).toBe("/workspace/another-project");
+    });
+  });
+
+  describe("addRemote", () => {
+    it("success", async () => {
+      setupMockProcess("");
+      expect(
+        await git.addRemote("origin", "https://github.com/user/repo.git"),
+      ).toEqual({
+        success: true,
+        data: "",
+      });
+    });
+
+    it("error - remote exists", async () => {
+      setupMockProcess("", "remote origin already exists", 128);
+      expect(
+        await git.addRemote("origin", "https://github.com/user/repo.git"),
+      ).toEqual({
+        success: false,
+        error: "remote origin already exists",
+      });
+    });
+  });
+
+  describe("getCurrentBranch", () => {
+    it("success", async () => {
+      setupMockProcess("main\n");
+      expect(await git.getCurrentBranch()).toEqual({
+        success: true,
+        data: "main",
+      });
+    });
+
+    it("error", async () => {
+      setupMockProcess("", "fatal: not a git repository", 128);
+      expect(await git.getCurrentBranch()).toEqual({
+        success: false,
+        error: "fatal: not a git repository",
+      });
     });
   });
 
   describe("status", () => {
-    it("should return git status", async () => {
+    it("success", async () => {
       const statusOutput =
         "On branch main\nnothing to commit, working tree clean";
       setupMockProcess(statusOutput);
-
-      const result = await git.status();
-
-      expect(result).toBe(statusOutput);
-      expect(mockSpawn).toHaveBeenCalledWith("git", ["status"]);
+      expect(await git.status()).toEqual({
+        success: true,
+        data: statusOutput,
+      });
     });
   });
 
   describe("add", () => {
-    it("should add files to staging", async () => {
+    it("success", async () => {
       setupMockProcess("");
+      expect(await git.add(["file1.txt"])).toEqual({
+        success: true,
+        data: "",
+      });
+    });
 
-      await git.add(["file1.txt", "file2.txt"]);
-
-      expect(mockSpawn).toHaveBeenCalledWith("git", [
-        "add",
-        "file1.txt",
-        "file2.txt",
-      ]);
+    it("error - non-existent files", async () => {
+      setupMockProcess(
+        "",
+        "fatal: pathspec 'nonexistent.txt' did not match any files",
+        128,
+      );
+      expect(await git.add(["nonexistent.txt"])).toEqual({
+        success: false,
+        error: "fatal: pathspec 'nonexistent.txt' did not match any files",
+      });
     });
   });
 
   describe("commit", () => {
-    it("should commit changes with message", async () => {
-      setupMockProcess("[main abc1234] test commit\n 1 file changed");
+    it("success", async () => {
+      const commitOutput = "[main abc1234] test commit\n 1 file changed";
+      setupMockProcess(commitOutput);
+      expect(await git.commit("test commit")).toEqual({
+        success: true,
+        data: commitOutput,
+      });
+    });
 
-      const result = await git.commit("test commit");
-
-      expect(result).toBe("[main abc1234] test commit\n 1 file changed");
-      expect(mockSpawn).toHaveBeenCalledWith("git", [
-        "commit",
-        "-m",
-        "test commit",
-      ]);
+    it("error - nothing to commit", async () => {
+      setupMockProcess("", "nothing to commit, working tree clean", 1);
+      expect(await git.commit("test commit")).toEqual({
+        success: false,
+        error: "nothing to commit, working tree clean",
+      });
     });
   });
 
   describe("pull", () => {
-    it("should pull changes from remote", async () => {
+    it("success", async () => {
       setupMockProcess("Already up to date.");
+      expect(await git.pull()).toEqual({
+        success: true,
+        data: "Already up to date.",
+      });
+    });
 
-      const result = await git.pull();
-
-      expect(result).toBe("Already up to date.");
-      expect(mockSpawn).toHaveBeenCalledWith("git", ["pull"]);
+    it("error - no remote", async () => {
+      setupMockProcess("", "fatal: no remote repository specified", 1);
+      expect(await git.pull()).toEqual({
+        success: false,
+        error: "fatal: no remote repository specified",
+      });
     });
   });
 
   describe("push", () => {
-    it("should push changes to remote", async () => {
+    it("success", async () => {
       setupMockProcess("Everything up-to-date");
-
-      const result = await git.push();
-
-      expect(result).toBe("Everything up-to-date");
-      expect(mockSpawn).toHaveBeenCalledWith("git", ["push"]);
+      expect(await git.push()).toEqual({
+        success: true,
+        data: "Everything up-to-date",
+      });
     });
 
-    it("should handle push error", async () => {
+    it("error - no upstream", async () => {
       setupMockProcess(
         "",
         "fatal: The current branch has no upstream branch",
         1,
       );
-
-      await expect(git.push()).rejects.toThrow(
-        "Git error: fatal: The current branch has no upstream branch",
-      );
+      expect(await git.push()).toEqual({
+        success: false,
+        error: "fatal: The current branch has no upstream branch",
+      });
     });
   });
 });

@@ -11,7 +11,7 @@ export type CPUTimes = {
 
 export type SystemUsageData = {
   success: boolean;
-  data: {
+  data?: {
     cpuCores: number;
     cpuUsagePerCore: number[];
     cpuUsagePercent: number;
@@ -23,6 +23,7 @@ export type SystemUsageData = {
     memoryUsedBytes: number;
     memoryUsagePercent: number;
   };
+  error?: string;
 };
 
 export class System {
@@ -30,6 +31,11 @@ export class System {
 
   constructor(synapse: Synapse) {
     this.synapse = synapse;
+  }
+
+  private log(message: string): void {
+    const timestamp = new Date().toISOString();
+    console.log(`[System][${timestamp}] ${message}`);
   }
 
   private calculateCPUUsage(startUsage: CPUTimes, endUsage: CPUTimes): number {
@@ -66,7 +72,7 @@ export class System {
    */
   async getUsage(measurementInterval: number = 3000): Promise<SystemUsageData> {
     try {
-      this.synapse.logger("Starting system usage measurement");
+      this.log("Starting system usage measurement");
 
       const startMeasurements = this.getCPUUsage();
       await new Promise((resolve) => setTimeout(resolve, measurementInterval));
@@ -83,7 +89,7 @@ export class System {
 
       const [loadAvg1m, loadAvg5m, loadAvg15m] = os.loadavg();
 
-      this.synapse.logger("System usage measurement completed");
+      this.log("System usage measurement completed");
 
       return {
         success: true,
@@ -103,10 +109,13 @@ export class System {
         },
       };
     } catch (error) {
-      this.synapse.logger(
+      this.log(
         `Error in getUsage: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 }

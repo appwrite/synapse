@@ -1,6 +1,8 @@
+import fs from "fs";
 import { IncomingMessage } from "http";
 import { Socket } from "net";
 import WebSocket, { WebSocketServer } from "ws";
+import { Terminal } from "./services/terminal";
 
 export type MessagePayload = {
   type: string;
@@ -23,6 +25,8 @@ class Synapse {
     onError: (() => {}) as ErrorCallback,
   };
 
+  private terminals: Set<Terminal> = new Set();
+
   private isReconnecting = false;
   private maxReconnectAttempts = 5;
   private reconnectAttempts = 0;
@@ -30,17 +34,33 @@ class Synapse {
   private lastPath: string | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
 
-  logger: Logger = console.log;
   private host: string;
   private port: number;
 
-  constructor(host: string = "localhost", port: number = 3000) {
+  public workDir: string;
+
+  constructor(
+    host: string = "localhost",
+    port: number = 3000,
+    workDir: string = process.cwd(),
+  ) {
     this.host = host;
     this.port = port;
+
+    if (!fs.existsSync(workDir)) {
+      fs.mkdirSync(workDir, { recursive: true });
+    }
+    this.workDir = workDir;
+
     this.wss = new WebSocketServer({ noServer: true });
     this.wss.on("connection", (ws: WebSocket) => {
       this.setupWebSocket(ws);
     });
+  }
+
+  private log(message: string): void {
+    const timestamp = new Date().toISOString();
+    console.log(`[Synapse][${timestamp}] ${message}`);
   }
 
   private setupWebSocket(ws: WebSocket): void {
@@ -75,34 +95,22 @@ class Synapse {
     this.reconnectAttempts++;
 
     this.reconnectTimeout = setTimeout(() => {
-      this.logger(
+      this.log(
         `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`,
       );
       this.connect(this.lastPath || "/")
         .then(() => {
           this.isReconnecting = false;
-          this.logger("Reconnection successful");
+          this.log("Reconnection successful");
         })
         .catch((error) => {
           this.isReconnecting = false;
-          this.logger(`Reconnection failed: ${error.message}`);
+          this.log(`Reconnection failed: ${error.message}`);
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.attemptReconnect();
           }
         });
     }, this.reconnectInterval);
-  }
-
-  /**
-   * Cancels the reconnection process
-   */
-  public cancelReconnect(): void {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-    this.isReconnecting = false;
-    this.reconnectAttempts = this.maxReconnectAttempts;
   }
 
   private handleMessage(event: WebSocket.MessageEvent): void {
@@ -122,7 +130,7 @@ class Synapse {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown parsing error";
-      this.logger(
+      this.log(
         `Message parsing error: ${errorMessage}. Raw message: ${event.data}`,
       );
     }
@@ -130,6 +138,69 @@ class Synapse {
 
   private buildWebSocketUrl(path: string): string {
     return `ws://${this.host}:${this.port}${path}`;
+  }
+
+  /**
+   * Registers a terminal instance with Synapse
+   * @param terminal - The terminal instance to register
+   */
+  registerTerminal(terminal: Terminal): void {
+    this.terminals.add(terminal);
+  }
+
+  /**
+   * Unregisters a terminal instance from Synapse
+   * @param terminal - The terminal instance to unregister
+   */
+  unregisterTerminal(terminal: Terminal): void {
+    this.terminals.delete(terminal);
+  }
+
+  /**
+   * Sets the working directory for the Synapse instance
+   * @param workDir - The path to the working directory
+   * @returns void
+   */
+  updateWorkDir(workDir: string): { success: boolean; data: string } {
+    if (!fs.existsSync(workDir)) {
+      try {
+        fs.mkdirSync(workDir, { recursive: true });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Unknown error creating directory";
+        this.log(`Failed to create work directory: ${errorMessage}`);
+        return {
+          success: false,
+          data: `Failed to create work directory: ${errorMessage}`,
+        };
+      }
+    }
+
+    this.workDir = workDir;
+    this.terminals.forEach((terminal) => {
+      if (terminal.isTerminalAlive()) {
+        terminal.updateWorkDir(workDir);
+      }
+    });
+    return {
+      success: true,
+      data: "Work directory updated successfully",
+    };
+  }
+
+  /**
+   * Cancels the reconnection process
+   * @returns void
+   */
+  cancelReconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    this.isReconnecting = false;
+    this.reconnectAttempts = this.maxReconnectAttempts;
   }
 
   /**
@@ -179,14 +250,6 @@ class Synapse {
         );
       }
     });
-  }
-
-  /**
-   * Sets the logger function for the Synapse instance
-   * @param logger - The logger function to use
-   */
-  setLogger(logger: Logger): void {
-    this.logger = logger;
   }
 
   /**
