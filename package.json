@@ -2,7 +2,6 @@
   "name": "@appwrite.io/synapse",
   "version": "0.3.0",
   "description": "Operating system gateway for remote serverless environments",
-  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
