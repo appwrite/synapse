@@ -119,12 +119,6 @@ export class Terminal {
     try {
       this.checkTerminal();
       this.log(`Writing command: ${command}`);
-
-      // Ensure command ends with newline
-      if (!command.endsWith("\n")) {
-        command += "\n";
-      }
-
       this.term?.write(command);
     } catch (error) {
       console.error("Failed to execute command:", error);
@@ -155,8 +149,7 @@ export class Terminal {
   updateWorkDir(workDir: string): void {
     try {
       this.checkTerminal();
-      // Send cd command to change directory
-      this.createCommand(`cd "${workDir}"`);
+      this.createCommand(`cd "${workDir}"\n`);
     } catch (error) {
       console.error("Failed to update working directory:", error);
     }
