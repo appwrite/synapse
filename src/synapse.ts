@@ -33,6 +33,7 @@ class Synapse {
   private reconnectAttempts = 0;
   private reconnectInterval = 3000;
   private lastPath: string | null = null;
+  private lastParams: Record<string, string> | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
 
   private host: string;
@@ -140,8 +141,21 @@ class Synapse {
     }
   }
 
-  private buildWebSocketUrl(path: string): string {
-    return `ws://${this.host}:${this.port}${path}`;
+  private buildWebSocketUrl(
+    path: string,
+    params?: Record<string, string>,
+  ): string {
+    let url = `ws://${this.host}:${this.port}${path}`;
+    if (params && Object.keys(params).length > 0) {
+      const query = Object.entries(params)
+        .map(
+          ([key, value]) =>
+            `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
+        )
+        .join("&");
+      url += `?${query}`;
+    }
+    return url;
   }
 
   /**
@@ -210,12 +224,17 @@ class Synapse {
   /**
    * Establishes a WebSocket connection to the specified URL and initializes the terminal
    * @param path - The WebSocket endpoint path (e.g. '/' or '/terminal')
+   * @param params - Optional URL query parameters as an object
    * @returns Promise that resolves with the Synapse instance when connected
    * @throws Error if WebSocket connection fails
    */
-  connect(path: string): Promise<Synapse> {
+  connect(path: string, params?: Record<string, string>): Promise<Synapse> {
     this.lastPath = path;
-    const url = this.buildWebSocketUrl(path);
+    if (params) {
+      this.lastParams = params;
+    }
+
+    const url = this.buildWebSocketUrl(path, params);
 
     return new Promise((resolve, reject) => {
       try {
@@ -254,6 +273,14 @@ class Synapse {
         );
       }
     });
+  }
+
+  getPath(): string | null {
+    return this.lastPath;
+  }
+
+  getParams(): Record<string, string> | null {
+    return this.lastParams;
   }
 
   /**
