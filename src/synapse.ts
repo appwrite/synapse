@@ -216,7 +216,7 @@ class Synapse {
    * @returns Promise that resolves with the Synapse instance when connected
    * @throws Error if WebSocket connection fails
    */
-  connect(path: string, params?: Record<string, string>): Promise<Synapse> {
+  connect(path: string): Promise<Synapse> {
     this.lastPath = path;
     const url = this.buildWebSocketUrl(path);
 
