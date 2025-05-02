@@ -158,5 +158,37 @@ describe("Synapse", () => {
       );
       expect(onOpenMock).toHaveBeenCalled();
     });
+
+    it("should call onConnection callback when new connection is established", () => {
+      const mockWs = createMockWebSocket();
+      const mockWss = {
+        handleUpgrade: jest.fn((req, socket, head, cb) => {
+          cb(mockWs);
+          const connectionHandler = (mockWss.on as jest.Mock).mock.calls.find(
+            ([eventName]: [string]) => eventName === "connection",
+          )?.[1];
+          if (connectionHandler) {
+            connectionHandler(mockWs);
+          }
+        }),
+        emit: jest.fn(),
+        on: jest.fn() as jest.Mock,
+        close: jest.fn(),
+      } as unknown as WebSocketServer;
+
+      jest.mocked(WebSocketServer).mockImplementation(() => mockWss);
+
+      const onConnectionMock = jest.fn();
+      synapse = new Synapse();
+      synapse.onConnection(onConnectionMock);
+
+      synapse.handleUpgrade(
+        {} as IncomingMessage,
+        {} as Socket,
+        Buffer.alloc(0),
+      );
+
+      expect(onConnectionMock).toHaveBeenCalledWith(mockWs);
+    });
   });
 });

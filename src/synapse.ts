@@ -13,6 +13,7 @@ export type MessagePayload = {
 export type MessageHandler = (message: MessagePayload) => void;
 export type ConnectionCallback = () => void;
 export type ErrorCallback = (error: Error) => void;
+export type ServerConnectionCallback = (ws: WebSocket) => void;
 export type Logger = (message: string) => void;
 
 class Synapse {
@@ -39,6 +40,8 @@ class Synapse {
 
   public workDir: string;
 
+  private serverConnectionListener: ServerConnectionCallback = () => {};
+
   constructor(
     host: string = "localhost",
     port: number = 3000,
@@ -54,6 +57,7 @@ class Synapse {
 
     this.wss = new WebSocketServer({ noServer: true });
     this.wss.on("connection", (ws: WebSocket) => {
+      this.serverConnectionListener(ws);
       this.setupWebSocket(ws);
     });
   }
@@ -289,6 +293,16 @@ class Synapse {
       operation: "createCommand",
       params: { command },
     });
+  }
+
+  /**
+   * Registers a callback for when a new WebSocket connection is established on the server side
+   * @param callback - Function to be called when a new connection is established
+   * @returns The Synapse instance for method chaining
+   */
+  onConnection(callback: ServerConnectionCallback): Synapse {
+    this.serverConnectionListener = callback;
+    return this;
   }
 
   /**
