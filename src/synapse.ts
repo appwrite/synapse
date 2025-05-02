@@ -57,11 +57,9 @@ class Synapse {
     this.workDir = workDir;
 
     this.wss = new WebSocketServer({ noServer: true });
-    this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
+    this.wss.on("connection", (ws: WebSocket, req: IncomingMessage | null) => {
       this.serverConnectionListener(ws);
       this.setupWebSocket(ws);
-
-      this.lastParams = JSON.parse(req.url?.split("?")[1] || "{}");
     });
   }
 
@@ -364,6 +362,22 @@ class Synapse {
    * @param head - The first packet of the upgraded stream
    */
   handleUpgrade(req: IncomingMessage, socket: Socket, head: Buffer): void {
+    if (req.url) {
+      const query = req.url.split("?")[1];
+      if (query) {
+        try {
+          this.lastParams = JSON.parse(query);
+        } catch {
+          this.lastParams = Object.fromEntries(
+            query.split("&").map((kv) => {
+              const [k, v] = kv.split("=");
+              return [decodeURIComponent(k), decodeURIComponent(v ?? "")];
+            }),
+          );
+        }
+      }
+    }
+
     this.wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
       this.wss.emit("connection", ws, req);
     });

@@ -191,4 +191,25 @@ describe("Synapse", () => {
       expect(onConnectionMock).toHaveBeenCalledWith(mockWs);
     });
   });
+
+  describe("params handling", () => {
+    it("should set params via handleUpgrade with URL params", () => {
+      const synapse = new Synapse();
+      // Simulate a request with query params
+      const req = { url: "/?foo=bar&baz=qux" } as IncomingMessage;
+      const socket = {} as Socket;
+      const head = Buffer.alloc(0);
+      // Patch JSON.parse to parse query string as an object
+      const originalParse = JSON.parse;
+      jest.spyOn(JSON, "parse").mockImplementation((str) => {
+        if (str === "foo=bar&baz=qux") {
+          return { foo: "bar", baz: "qux" };
+        }
+        return originalParse(str);
+      });
+      synapse.handleUpgrade(req, socket, head);
+      expect(synapse.getLastParams()).toEqual({ foo: "bar", baz: "qux" });
+      (JSON.parse as jest.Mock).mockRestore();
+    });
+  });
 });
