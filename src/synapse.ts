@@ -57,7 +57,7 @@ class Synapse {
     this.workDir = workDir;
 
     this.wss = new WebSocketServer({ noServer: true });
-    this.wss.on("connection", (ws: WebSocket, req: IncomingMessage | null) => {
+    this.wss.on("connection", (ws: WebSocket) => {
       this.serverConnectionListener(ws);
       this.setupWebSocket(ws);
     });
