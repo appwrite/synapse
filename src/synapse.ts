@@ -57,9 +57,11 @@ class Synapse {
     this.workDir = workDir;
 
     this.wss = new WebSocketServer({ noServer: true });
-    this.wss.on("connection", (ws: WebSocket) => {
+    this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       this.serverConnectionListener(ws);
       this.setupWebSocket(ws);
+
+      this.lastParams = JSON.parse(req.url?.split("?")[1] || "{}");
     });
   }
 
@@ -141,21 +143,8 @@ class Synapse {
     }
   }
 
-  private buildWebSocketUrl(
-    path: string,
-    params?: Record<string, string>,
-  ): string {
-    let url = `ws://${this.host}:${this.port}${path}`;
-    if (params && Object.keys(params).length > 0) {
-      const query = Object.entries(params)
-        .map(
-          ([key, value]) =>
-            `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
-        )
-        .join("&");
-      url += `?${query}`;
-    }
-    return url;
+  private buildWebSocketUrl(path: string): string {
+    return `ws://${this.host}:${this.port}${path}`;
   }
 
   /**
@@ -224,17 +213,12 @@ class Synapse {
   /**
    * Establishes a WebSocket connection to the specified URL and initializes the terminal
    * @param path - The WebSocket endpoint path (e.g. '/' or '/terminal')
-   * @param params - Optional URL query parameters as an object
    * @returns Promise that resolves with the Synapse instance when connected
    * @throws Error if WebSocket connection fails
    */
   connect(path: string, params?: Record<string, string>): Promise<Synapse> {
     this.lastPath = path;
-    if (params) {
-      this.lastParams = params;
-    }
-
-    const url = this.buildWebSocketUrl(path, params);
+    const url = this.buildWebSocketUrl(path);
 
     return new Promise((resolve, reject) => {
       try {
@@ -275,11 +259,11 @@ class Synapse {
     });
   }
 
-  getPath(): string | null {
+  getLastPath(): string | null {
     return this.lastPath;
   }
 
-  getParams(): Record<string, string> | null {
+  getLastParams(): Record<string, string> | null {
     return this.lastParams;
   }
 
