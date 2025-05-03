@@ -40,8 +40,9 @@ describe("Synapse", () => {
       const connectPromise = synapse.connect("/terminal");
       setTimeout(() => mockWs.onopen!({} as WebSocket.Event), 0);
 
-      const result = await connectPromise;
-      expect(result).toBe(synapse);
+      const connectionId = await connectPromise;
+      expect(typeof connectionId).toBe("string");
+      expect(synapse.getConnections()).toContain(connectionId);
     });
 
     it("should reject on connection error", async () => {
@@ -53,6 +54,7 @@ describe("Synapse", () => {
         () =>
           mockWs.onerror!({
             error: new Error("Connection failed"),
+            message: "Connection failed",
           } as WebSocket.ErrorEvent),
         0,
       );
@@ -63,13 +65,14 @@ describe("Synapse", () => {
 
   describe("message handling", () => {
     let mockWs: ReturnType<typeof createMockWebSocket>;
+    let connectionId: string;
 
     beforeEach(async () => {
       mockWs = createMockWebSocket();
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
       const connectPromise = synapse.connect("/");
       setTimeout(() => mockWs.onopen!({} as WebSocket.Event), 0);
-      await connectPromise;
+      connectionId = await connectPromise;
     });
 
     it("should handle messages correctly", async () => {
@@ -85,7 +88,7 @@ describe("Synapse", () => {
       mockWs.onmessage!({
         data: JSON.stringify(testMessage),
       } as WebSocket.MessageEvent);
-      expect(handler).toHaveBeenCalledWith(testMessage);
+      expect(handler).toHaveBeenCalledWith(testMessage, connectionId);
     });
 
     it("should ignore malformed messages", async () => {
@@ -99,18 +102,19 @@ describe("Synapse", () => {
 
   describe("send", () => {
     let mockWs: ReturnType<typeof createMockWebSocket>;
+    let connectionId: string;
 
     beforeEach(async () => {
       mockWs = createMockWebSocket();
       (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
       const connectPromise = synapse.connect("/");
       setTimeout(() => mockWs.onopen!({} as WebSocket.Event), 0);
-      await connectPromise;
+      connectionId = await connectPromise;
     });
 
     it("should send messages and return payload", async () => {
       const payload = { data: "test-data" };
-      const result = await synapse.send("test-type", payload);
+      const result = await synapse.send(connectionId, "test-type", payload);
 
       expect(result).toEqual({
         type: "test-type",
@@ -120,9 +124,9 @@ describe("Synapse", () => {
     });
 
     it("should throw when not connected", () => {
-      synapse.disconnect();
-      expect(() => synapse.send("test-type")).toThrow(
-        "WebSocket is not connected",
+      synapse.disconnect(connectionId);
+      expect(() => synapse.send(connectionId, "test-type")).toThrow(
+        `WebSocket connection ${connectionId} is not connected`,
       );
     });
   });
@@ -188,28 +192,33 @@ describe("Synapse", () => {
         Buffer.alloc(0),
       );
 
-      expect(onConnectionMock).toHaveBeenCalledWith(mockWs);
+      expect(onConnectionMock).toHaveBeenCalledWith(mockWs, expect.any(String));
     });
   });
 
-  describe("params handling", () => {
-    it("should set params via handleUpgrade with URL params", () => {
-      const synapse = new Synapse();
-      // Simulate a request with query params
-      const req = { url: "/?foo=bar&baz=qux" } as IncomingMessage;
-      const socket = {} as Socket;
-      const head = Buffer.alloc(0);
-      // Patch JSON.parse to parse query string as an object
-      const originalParse = JSON.parse;
-      jest.spyOn(JSON, "parse").mockImplementation((str) => {
-        if (str === "foo=bar&baz=qux") {
-          return { foo: "bar", baz: "qux" };
-        }
-        return originalParse(str);
+  describe("multiple connections", () => {
+    it("should allow multiple connections and track them independently", async () => {
+      const mockWs1 = createMockWebSocket();
+      const mockWs2 = createMockWebSocket();
+      let callCount = 0;
+      (WebSocket as unknown as jest.Mock).mockImplementation(() => {
+        callCount++;
+        return callCount === 1 ? mockWs1 : mockWs2;
       });
-      synapse.handleUpgrade(req, socket, head);
-      expect(synapse.getLastParams()).toEqual({ foo: "bar", baz: "qux" });
-      (JSON.parse as jest.Mock).mockRestore();
+      const id1Promise = synapse.connect("/a");
+      setTimeout(() => mockWs1.onopen!({} as WebSocket.Event), 0);
+      const id2Promise = synapse.connect("/b");
+      setTimeout(() => mockWs2.onopen!({} as WebSocket.Event), 0);
+      const id1 = await id1Promise;
+      const id2 = await id2Promise;
+      expect(id1).not.toBe(id2);
+      expect(synapse.getConnections()).toEqual(
+        expect.arrayContaining([id1, id2]),
+      );
+      // Disconnect one and check the other remains
+      synapse.disconnect(id1);
+      expect(synapse.getConnections()).toContain(id2);
+      expect(synapse.getConnections()).not.toContain(id1);
     });
   });
 });
