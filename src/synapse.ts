@@ -488,8 +488,6 @@ class Synapse {
     }
 
     this.wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
-      const connectionId = this.generateConnectionId();
-      this.setupWebSocket(ws, connectionId, path, params);
       this.wss.emit("connection", ws, req);
     });
   }
