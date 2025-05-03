@@ -24,10 +24,7 @@ export type MessageHandler = (
 ) => void;
 export type ConnectionCallback = (connectionId: string) => void;
 export type ErrorCallback = (error: Error, connectionId: string) => void;
-export type ServerConnectionCallback = (
-  ws: WebSocket,
-  connectionId: string,
-) => void;
+export type ServerConnectionCallback = (connectionId: string) => void;
 export type Logger = (message: string) => void;
 
 class Synapse {
@@ -70,7 +67,7 @@ class Synapse {
     this.wss = new WebSocketServer({ noServer: true });
     this.wss.on("connection", (ws: WebSocket) => {
       const connectionId = this.generateConnectionId();
-      this.serverConnectionListener(ws, connectionId);
+      this.serverConnectionListener(connectionId);
       this.setupWebSocket(ws, connectionId);
     });
   }
@@ -410,19 +407,6 @@ class Synapse {
     });
 
     return promises;
-  }
-
-  /**
-   * Sends a command to the terminal for execution for a specific connection
-   * @param connectionId - The ID of the connection to send to
-   * @param command - The command string to execute
-   * @returns A promise that resolves with the message payload
-   */
-  sendCommand(connectionId: string, command: string): Promise<MessagePayload> {
-    return this.send(connectionId, "terminal", {
-      operation: "createCommand",
-      params: { command },
-    });
   }
 
   /**

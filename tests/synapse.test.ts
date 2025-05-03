@@ -192,7 +192,7 @@ describe("Synapse", () => {
         Buffer.alloc(0),
       );
 
-      expect(onConnectionMock).toHaveBeenCalledWith(mockWs, expect.any(String));
+      expect(onConnectionMock).toHaveBeenCalledWith(expect.any(String)); // connectionId
     });
   });
 

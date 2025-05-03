@@ -6,6 +6,7 @@ export type TerminalOptions = {
   shell: string;
   cols?: number;
   rows?: number;
+  workDir?: string;
 };
 
 export class Terminal {
@@ -27,6 +28,7 @@ export class Terminal {
       shell: os.platform() === "win32" ? "powershell.exe" : "bash",
       cols: 80,
       rows: 24,
+      workDir: synapse.workDir,
     },
   ) {
     this.synapse = synapse;
@@ -37,7 +39,7 @@ export class Terminal {
         name: "xterm-color",
         cols: terminalOptions.cols,
         rows: terminalOptions.rows,
-        cwd: this.synapse.workDir,
+        cwd: terminalOptions.workDir,
         env: process.env,
       });
 
