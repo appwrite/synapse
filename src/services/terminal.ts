@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import * as pty from "node-pty";
 import * as os from "os";
 import { Synapse } from "../synapse";
@@ -33,6 +34,12 @@ export class Terminal {
   ) {
     this.synapse = synapse;
     this.synapse.registerTerminal(this);
+
+    if (terminalOptions.workDir) {
+      if (!fs.existsSync(terminalOptions.workDir)) {
+        fs.mkdirSync(terminalOptions.workDir, { recursive: true });
+      }
+    }
 
     try {
       this.term = pty.spawn(terminalOptions.shell, [], {
