@@ -154,7 +154,7 @@ describe("Synapse", () => {
             ([eventName]: [string]) => eventName === "connection",
           )?.[1];
           if (connectionHandler) {
-            connectionHandler(mockWs);
+            connectionHandler(mockWs, req);
           }
         }),
         emit: jest.fn(),
@@ -168,11 +168,9 @@ describe("Synapse", () => {
       synapse = new Synapse();
       synapse.onOpen(onOpenMock);
 
-      synapse.handleUpgrade(
-        {} as IncomingMessage,
-        {} as Socket,
-        Buffer.alloc(0),
-      );
+      // Provide a mock IncomingMessage with a url property
+      const mockReq = { url: "/test?foo=bar" } as IncomingMessage;
+      synapse.handleUpgrade(mockReq, {} as Socket, Buffer.alloc(0));
       expect(onOpenMock).toHaveBeenCalled();
     });
 
@@ -185,7 +183,7 @@ describe("Synapse", () => {
             ([eventName]: [string]) => eventName === "connection",
           )?.[1];
           if (connectionHandler) {
-            connectionHandler(mockWs);
+            connectionHandler(mockWs, req);
           }
         }),
         emit: jest.fn(),
@@ -199,11 +197,9 @@ describe("Synapse", () => {
       synapse = new Synapse();
       synapse.onConnection(onConnectionMock);
 
-      synapse.handleUpgrade(
-        {} as IncomingMessage,
-        {} as Socket,
-        Buffer.alloc(0),
-      );
+      // Provide a mock IncomingMessage with a url property
+      const mockReq = { url: "/test?foo=bar" } as IncomingMessage;
+      synapse.handleUpgrade(mockReq, {} as Socket, Buffer.alloc(0));
 
       expect(onConnectionMock).toHaveBeenCalledWith(expect.any(String)); // connectionId
     });
@@ -221,7 +217,10 @@ describe("Synapse", () => {
             ([eventName]: [string]) => eventName === "connection",
           )?.[1];
           if (connectionHandler) {
-            connectionHandler((req as any).clientId === 1 ? mockWs1 : mockWs2);
+            connectionHandler(
+              (req as any).clientId === 1 ? mockWs1 : mockWs2,
+              req,
+            );
           }
         }),
         emit: jest.fn(),
@@ -236,16 +235,11 @@ describe("Synapse", () => {
       const connectionIds: string[] = [];
       synapse.onConnection((id) => connectionIds.push(id));
 
-      synapse.handleUpgrade(
-        { clientId: 1 } as any,
-        {} as Socket,
-        Buffer.alloc(0),
-      );
-      synapse.handleUpgrade(
-        { clientId: 2 } as any,
-        {} as Socket,
-        Buffer.alloc(0),
-      );
+      // Provide mock IncomingMessages with url property
+      const mockReq1 = { clientId: 1, url: "/test1?foo=bar" } as any;
+      const mockReq2 = { clientId: 2, url: "/test2?foo=baz" } as any;
+      synapse.handleUpgrade(mockReq1, {} as Socket, Buffer.alloc(0));
+      synapse.handleUpgrade(mockReq2, {} as Socket, Buffer.alloc(0));
 
       expect(connectionIds.length).toBe(2);
       expect(connectionIds[0]).not.toBe(connectionIds[1]);

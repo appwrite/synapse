@@ -65,9 +65,9 @@ class Synapse {
     this.workDir = workDir;
 
     this.wss = new WebSocketServer({ noServer: true });
-    this.wss.on("connection", (ws: WebSocket) => {
+    this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       const connectionId = this.generateConnectionId();
-      this.setupWebSocket(ws, connectionId);
+      this.setupWebSocket(ws, req, connectionId);
       this.serverConnectionListener(connectionId);
     });
   }
@@ -83,10 +83,25 @@ class Synapse {
 
   private setupWebSocket(
     ws: WebSocket,
+    req: IncomingMessage,
     connectionId: string,
-    path: string = "/",
-    params: Record<string, string> | null = null,
   ): void {
+    const path = req.url?.split("?")[0] ?? "/";
+    let params: Record<string, string> | null = null;
+    const query = req.url?.split("?")[1];
+    if (query) {
+      try {
+        params = JSON.parse(query);
+      } catch {
+        params = Object.fromEntries(
+          query.split("&").map((kv) => {
+            const [k, v] = kv.split("=");
+            return [decodeURIComponent(k), decodeURIComponent(v ?? "")];
+          }),
+        );
+      }
+    }
+
     this.connections.set(connectionId, {
       ws,
       id: connectionId,
