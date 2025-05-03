@@ -316,6 +316,26 @@ class Synapse {
   }
 
   /**
+   * Gets the path associated with a specific connection
+   * @param connectionId - The ID of the connection
+   * @returns The connection path or null if connection not found
+   */
+  getPath(connectionId: string): string | null {
+    const connection = this.connections.get(connectionId);
+    return connection ? connection.path : null;
+  }
+
+  /**
+   * Gets the parameters associated with a specific connection
+   * @param connectionId - The ID of the connection
+   * @returns The connection parameters or null if connection not found
+   */
+  getParams(connectionId: string): Record<string, string> | null {
+    const connection = this.connections.get(connectionId);
+    return connection ? connection.params : null;
+  }
+
+  /**
    * Gets all active connection IDs
    * @returns Array of connection IDs
    */
