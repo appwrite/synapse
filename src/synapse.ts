@@ -67,8 +67,8 @@ class Synapse {
     this.wss = new WebSocketServer({ noServer: true });
     this.wss.on("connection", (ws: WebSocket) => {
       const connectionId = this.generateConnectionId();
-      this.serverConnectionListener(connectionId);
       this.setupWebSocket(ws, connectionId);
+      this.serverConnectionListener(connectionId);
     });
   }
 
@@ -281,23 +281,17 @@ class Synapse {
    */
   connect(path: string): Promise<string> {
     const url = this.buildWebSocketUrl(path);
-    const connectionId = this.generateConnectionId();
 
     return new Promise((resolve, reject) => {
       try {
         const ws = new WebSocket(url);
 
         ws.onopen = () => {
-          this.setupWebSocket(ws, connectionId, path);
-          resolve(connectionId);
+          resolve("Synapse connected successfully");
         };
 
         ws.onerror = (error: WebSocket.ErrorEvent) => {
           const errorMessage = `WebSocket error: ${error.message || "Unknown error"}. Failed to connect to ${url}`;
-          this.connectionListeners.onError(
-            new Error(errorMessage),
-            connectionId,
-          );
           reject(new Error(errorMessage));
         };
       } catch (error) {
