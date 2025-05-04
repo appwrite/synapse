@@ -252,4 +252,28 @@ describe("Synapse", () => {
       expect(synapse.getConnections()).not.toContain(connectionIds[0]);
     });
   });
+
+  describe("connection cleanup", () => {
+    it("should clear all connections when disconnect is called", () => {
+      const mockWs1 = createMockWebSocket();
+      const mockWs2 = createMockWebSocket();
+      (synapse as any).connections.set("conn1", {
+        ws: mockWs1,
+        id: "conn1",
+        path: "/a",
+        params: null,
+        reconnectAttempts: 0,
+      });
+      (synapse as any).connections.set("conn2", {
+        ws: mockWs2,
+        id: "conn2",
+        path: "/b",
+        params: null,
+        reconnectAttempts: 0,
+      });
+      expect(synapse.getConnections().length).toBe(2);
+      synapse.disconnect();
+      expect(synapse.getConnections().length).toBe(0);
+    });
+  });
 });

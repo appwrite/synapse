@@ -1,4 +1,3 @@
-import * as fs from "fs";
 import * as pty from "node-pty";
 import * as os from "os";
 import { Synapse } from "../synapse";
@@ -7,7 +6,6 @@ export type TerminalOptions = {
   shell: string;
   cols?: number;
   rows?: number;
-  workDir?: string;
 };
 
 export class Terminal {
@@ -29,24 +27,17 @@ export class Terminal {
       shell: os.platform() === "win32" ? "powershell.exe" : "bash",
       cols: 80,
       rows: 24,
-      workDir: synapse.workDir,
     },
   ) {
     this.synapse = synapse;
     this.synapse.registerTerminal(this);
-
-    if (terminalOptions.workDir) {
-      if (!fs.existsSync(terminalOptions.workDir)) {
-        fs.mkdirSync(terminalOptions.workDir, { recursive: true });
-      }
-    }
 
     try {
       this.term = pty.spawn(terminalOptions.shell, [], {
         name: "xterm-color",
         cols: terminalOptions.cols,
         rows: terminalOptions.rows,
-        cwd: terminalOptions.workDir,
+        cwd: this.synapse.workDir,
         env: process.env,
       });
 
