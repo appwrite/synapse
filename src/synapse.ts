@@ -22,12 +22,16 @@ export type MessageHandler = (
   message: MessagePayload,
   connectionId: string,
 ) => void;
-export type ConnectionCallback = (
+
+export type ConnectionCallback = (connectionId: string) => void;
+
+export type ConnectionCloseCallback = (
   connectionId: string,
   code?: number,
   reason?: string,
   wasClean?: boolean,
 ) => void;
+
 export type ErrorCallback = (error: Error, connectionId: string) => void;
 export type ServerConnectionCallback = (connectionId: string) => void;
 export type Logger = (message: string) => void;
@@ -38,7 +42,7 @@ class Synapse {
   private messageHandlers: Record<string, MessageHandler> = {};
   private connectionListeners = {
     onOpen: (() => {}) as ConnectionCallback,
-    onClose: (() => {}) as ConnectionCallback,
+    onClose: (() => {}) as ConnectionCloseCallback,
     onError: (() => {}) as ErrorCallback,
   };
 
@@ -453,7 +457,7 @@ class Synapse {
    * @param callback - Function to be called when connection closes. Receives (connectionId, code, reason)
    * @returns The Synapse instance for method chaining
    */
-  onClose(callback: ConnectionCallback): Synapse {
+  onClose(callback: ConnectionCloseCallback): Synapse {
     this.connectionListeners.onClose = callback;
     return this;
   }
