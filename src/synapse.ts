@@ -128,7 +128,12 @@ class Synapse {
         event.reason,
         event.wasClean,
       );
-      this.attemptReconnect(connectionId);
+
+      if (!event.wasClean) {
+        this.attemptReconnect(connectionId);
+      } else {
+        this.connections.delete(connectionId);
+      }
     };
 
     ws.onerror = (error) => {
