@@ -62,6 +62,28 @@ describe("Synapse", () => {
 
       await expect(connectPromise).rejects.toThrow("WebSocket error");
     });
+
+    it("should call onClose with code, reason, and wasClean", () => {
+      const mockWs = createMockWebSocket();
+      (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
+
+      const onCloseMock = jest.fn();
+      synapse.onClose(onCloseMock);
+
+      // Use the real setup method so event handlers are set
+      (synapse as any).setupWebSocket(mockWs, { url: "/" }, "conn1");
+
+      // Simulate close event
+      const closeEvent = { code: 4001, reason: "Test reason", wasClean: true };
+      mockWs.onclose && mockWs.onclose(closeEvent as any);
+
+      expect(onCloseMock).toHaveBeenCalledWith(
+        "conn1",
+        4001,
+        "Test reason",
+        true,
+      );
+    });
   });
 
   describe("message handling", () => {
