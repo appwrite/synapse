@@ -392,7 +392,7 @@ export class Filesystem {
    */
   cleanup(): void {
     this.log("Cleaning up all folder watchers");
-    for (const [fullPath, watcher] of this.folderWatchers.entries()) {
+    for (const [, watcher] of this.folderWatchers.entries()) {
       watcher.close();
     }
     this.folderWatchers.clear();
