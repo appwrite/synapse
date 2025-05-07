@@ -16,7 +16,6 @@ export type Connection = {
   id: string;
   path: string;
   params: Record<string, string> | null;
-  reconnectAttempts: number;
 };
 
 export type MessageHandler = (
@@ -49,11 +48,6 @@ class Synapse {
 
   private terminals: Set<Terminal> = new Set();
   private filesystem: Filesystem | undefined;
-
-  private isReconnecting = false;
-  private maxReconnectAttempts = 5;
-  private reconnectInterval = 3000;
-  private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
   private host: string;
   private port: number;
@@ -118,7 +112,6 @@ class Synapse {
       id: connectionId,
       path,
       params,
-      reconnectAttempts: 0,
     });
 
     ws.on("ping", () => {
@@ -135,15 +128,11 @@ class Synapse {
         event.wasClean,
       );
 
-      if (!event.wasClean) {
-        this.attemptReconnect(connectionId);
-      } else {
-        this.disconnect(connectionId);
+      this.disconnect(connectionId);
 
-        if (this.connections.size === 0) {
-          // clean up all resources
-          this.disconnect();
-        }
+      if (this.connections.size === 0) {
+        // clean up all resources
+        this.disconnect();
       }
     };
 
@@ -153,55 +142,6 @@ class Synapse {
     };
 
     this.connectionListeners.onOpen(connectionId);
-  }
-
-  private attemptReconnect(connectionId: string) {
-    const connection = this.connections.get(connectionId);
-    if (!connection) return;
-
-    if (
-      this.isReconnecting ||
-      connection.reconnectAttempts >= this.maxReconnectAttempts
-    ) {
-      this.connections.delete(connectionId);
-      return;
-    }
-
-    this.isReconnecting = true;
-    connection.reconnectAttempts++;
-
-    const timeout = setTimeout(() => {
-      this.log(
-        `Attempting to reconnect connection ${connectionId} (${connection.reconnectAttempts}/${this.maxReconnectAttempts})...`,
-      );
-      this.connect(connection.path || "/")
-        .then((newConnectionId) => {
-          this.isReconnecting = false;
-          this.log(
-            `Reconnection successful with new connection ID: ${newConnectionId}`,
-          );
-          // Copy any necessary state from old connection to new connection
-          const newConnection = this.connections.get(newConnectionId);
-          if (newConnection) {
-            newConnection.params = connection.params;
-          }
-          // Delete the old connection
-          this.connections.delete(connectionId);
-        })
-        .catch((error) => {
-          this.isReconnecting = false;
-          this.log(
-            `Reconnection failed for connection ${connectionId}: ${error.message}`,
-          );
-          if (connection.reconnectAttempts < this.maxReconnectAttempts) {
-            this.attemptReconnect(connectionId);
-          } else {
-            this.connections.delete(connectionId);
-          }
-        });
-    }, this.reconnectInterval);
-
-    this.reconnectTimeouts.set(connectionId, timeout);
   }
 
   private handleMessage(
@@ -294,37 +234,6 @@ class Synapse {
       success: true,
       data: "Work directory updated successfully",
     };
-  }
-
-  /**
-   * Cancels the reconnection process for a specific connection
-   * @param connectionId - The ID of the connection to cancel reconnection for, or all if not specified
-   * @returns void
-   */
-  cancelReconnect(connectionId?: string): void {
-    if (connectionId) {
-      const timeout = this.reconnectTimeouts.get(connectionId);
-      if (timeout) {
-        clearTimeout(timeout);
-        this.reconnectTimeouts.delete(connectionId);
-      }
-
-      const connection = this.connections.get(connectionId);
-      if (connection) {
-        connection.reconnectAttempts = this.maxReconnectAttempts;
-      }
-    } else {
-      this.reconnectTimeouts.forEach((timeout) => {
-        clearTimeout(timeout);
-      });
-      this.reconnectTimeouts.clear();
-
-      this.connections.forEach((connection) => {
-        connection.reconnectAttempts = this.maxReconnectAttempts;
-      });
-    }
-
-    this.isReconnecting = false;
   }
 
   /**
@@ -547,7 +456,6 @@ class Synapse {
    */
   disconnect(connectionId?: string): void {
     if (connectionId) {
-      this.cancelReconnect(connectionId);
       const connection = this.connections.get(connectionId);
       if (connection) {
         connection.ws.close();
@@ -555,7 +463,6 @@ class Synapse {
       }
     } else {
       // Close all connections
-      this.cancelReconnect();
       this.connections.forEach((connection) => {
         connection.ws.close();
       });
