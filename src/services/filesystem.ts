@@ -1,3 +1,4 @@
+import * as fsSync from "fs";
 import { constants as fsConstants } from "fs";
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -16,6 +17,7 @@ export type FileOperationResult = {
 
 export class Filesystem {
   private synapse: Synapse;
+  private folderWatchers: Map<string, fsSync.FSWatcher> = new Map();
 
   /**
    * Creates a new Filesystem instance
@@ -348,5 +350,51 @@ export class Filesystem {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  /**
+   * Starts watching a directory for changes and calls the callback with the updated folder structure.
+   * @param dirPath - The directory path to watch (relative to workDir)
+   * @param onChange - Callback to call with the result of getFolder when a change is detected
+   */
+  watchFolder(
+    dirPath: string,
+    onChange: (result: FileOperationResult) => void,
+  ): void {
+    const fullPath = path.join(this.synapse.workDir, dirPath);
+    if (this.folderWatchers.has(fullPath)) {
+      return;
+    }
+
+    const watcher = fsSync.watch(fullPath, { recursive: false }, async () => {
+      const result = await this.getFolder(dirPath);
+      onChange(result);
+    });
+
+    this.folderWatchers.set(fullPath, watcher);
+  }
+
+  /**
+   * Stops watching a directory for changes.
+   * @param dirPath - The directory path to stop watching (relative to workDir)
+   */
+  unwatchFolder(dirPath: string): void {
+    const fullPath = path.join(this.synapse.workDir, dirPath);
+    const watcher = this.folderWatchers.get(fullPath);
+    if (watcher) {
+      watcher.close();
+      this.folderWatchers.delete(fullPath);
+    }
+  }
+
+  /**
+   * Cleans up all folder watchers and releases resources.
+   */
+  cleanup(): void {
+    this.log("Cleaning up all folder watchers");
+    for (const [fullPath, watcher] of this.folderWatchers.entries()) {
+      watcher.close();
+    }
+    this.folderWatchers.clear();
   }
 }

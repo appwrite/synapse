@@ -2,6 +2,7 @@ import fs from "fs";
 import { IncomingMessage } from "http";
 import { Socket } from "net";
 import WebSocket, { WebSocketServer } from "ws";
+import { Filesystem } from "./services/filesystem";
 import { Terminal } from "./services/terminal";
 
 export type MessagePayload = {
@@ -47,6 +48,7 @@ class Synapse {
   };
 
   private terminals: Set<Terminal> = new Set();
+  private filesystem: Filesystem | undefined;
 
   private isReconnecting = false;
   private maxReconnectAttempts = 5;
@@ -136,7 +138,12 @@ class Synapse {
       if (!event.wasClean) {
         this.attemptReconnect(connectionId);
       } else {
-        this.connections.delete(connectionId);
+        this.disconnect(connectionId);
+
+        if (this.connections.size === 0) {
+          // clean up all resources
+          this.disconnect();
+        }
       }
     };
 
@@ -245,6 +252,14 @@ class Synapse {
    */
   unregisterTerminal(terminal: Terminal): void {
     this.terminals.delete(terminal);
+  }
+
+  /**
+   * Sets the Filesystem instance to be managed by Synapse
+   * @param filesystem - The Filesystem instance
+   */
+  setFilesystem(filesystem: Filesystem): void {
+    this.filesystem = filesystem;
   }
 
   /**
@@ -544,6 +559,12 @@ class Synapse {
       this.connections.forEach((connection) => {
         connection.ws.close();
       });
+      this.terminals.forEach((terminal) => {
+        terminal.kill();
+      });
+      if (this.filesystem) {
+        this.filesystem.cleanup();
+      }
       this.connections.clear();
       this.wss.close();
     }

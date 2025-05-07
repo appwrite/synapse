@@ -1,8 +1,16 @@
+import * as fsSync from "fs";
 import * as fs from "fs/promises";
 import { Filesystem } from "../../src/services/filesystem";
 import { Synapse } from "../../src/synapse";
 
 jest.mock("fs/promises");
+jest.mock("fs", () => ({
+  ...jest.requireActual("fs"),
+  watch: jest.fn(),
+  constants: {
+    F_OK: 0,
+  },
+}));
 
 describe("Filesystem", () => {
   let filesystem: Filesystem;
@@ -97,6 +105,71 @@ describe("Filesystem", () => {
         success: false,
         error: "File not found",
       });
+    });
+  });
+
+  describe("watchFolder", () => {
+    it("should set up a watcher and call callback on file changes", async () => {
+      const dirPath = "/test-dir";
+      const mockWatcher = {
+        close: jest.fn(),
+      };
+
+      // Mock the watcher
+      (fsSync.watch as jest.Mock).mockReturnValue(mockWatcher);
+
+      // Mock getFolder to return some file items
+      const fileItems = [
+        { name: "file1.txt", isDirectory: false },
+        { name: "dir1", isDirectory: true },
+      ];
+
+      // Create a spy implementation to capture the watch callback
+      let watchCallback:
+        | ((eventType: string, filename: string) => void)
+        | null = null;
+      (fsSync.watch as jest.Mock).mockImplementation(
+        (path, options, callback) => {
+          watchCallback = callback;
+          return mockWatcher;
+        },
+      );
+
+      // Make getFolder resolve with test data when called later
+      filesystem.getFolder = jest.fn().mockResolvedValue({
+        success: true,
+        data: fileItems,
+      });
+
+      // Set up the callback spy
+      const onChangeMock = jest.fn();
+
+      // Call the method being tested
+      filesystem.watchFolder(dirPath, onChangeMock);
+
+      // Verify watch was called with correct path
+      expect(fsSync.watch).toHaveBeenCalledWith(
+        "/test/test-dir",
+        { recursive: false },
+        expect.any(Function),
+      );
+
+      // Now simulate a file change event
+      if (watchCallback) {
+        // @ts-ignore
+        await watchCallback("change", "file1.txt");
+      }
+
+      // Verify our onChange callback was called with the result of getFolder
+      expect(filesystem.getFolder).toHaveBeenCalledWith(dirPath);
+      expect(onChangeMock).toHaveBeenCalledWith({
+        success: true,
+        data: fileItems,
+      });
+
+      // Also test unwatchFolder
+      filesystem.unwatchFolder(dirPath);
+      expect(mockWatcher.close).toHaveBeenCalled();
     });
   });
 });
