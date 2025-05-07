@@ -13,6 +13,7 @@ const createMockWebSocket = (options: { readyState?: number } = {}) => ({
   readyState: options.readyState ?? WebSocket.OPEN,
   send: jest.fn(),
   close: jest.fn(),
+  on: jest.fn(),
 });
 
 describe("Synapse", () => {
@@ -75,7 +76,7 @@ describe("Synapse", () => {
 
       // Simulate close event
       const closeEvent = { code: 4001, reason: "Test reason", wasClean: true };
-      mockWs.onclose && mockWs.onclose(closeEvent as any);
+      if (mockWs.onclose) mockWs.onclose(closeEvent as any);
 
       expect(onCloseMock).toHaveBeenCalledWith(
         "conn1",

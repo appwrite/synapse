@@ -1,5 +1,7 @@
+import * as fsSync from "fs";
 import { constants as fsConstants } from "fs";
 import * as fs from "fs/promises";
+import ignore from "ignore";
 import * as path from "path";
 import { Synapse } from "../synapse";
 
@@ -8,14 +10,21 @@ export type FileItem = {
   isDirectory: boolean;
 };
 
+export type FileItemResult = {
+  success: boolean;
+  data?: FileItem[];
+  error?: string;
+};
+
 export type FileOperationResult = {
   success: boolean;
-  data?: string | FileItem[];
+  data?: string;
   error?: string;
 };
 
 export class Filesystem {
   private synapse: Synapse;
+  private folderWatchers: Map<string, fsSync.FSWatcher> = new Map();
 
   /**
    * Creates a new Filesystem instance
@@ -23,6 +32,7 @@ export class Filesystem {
    */
   constructor(synapse: Synapse) {
     this.synapse = synapse;
+    this.synapse.setFilesystem(this);
   }
 
   private log(message: string): void {
@@ -240,7 +250,7 @@ export class Filesystem {
    * @returns Promise<FileOperationResult> containing array of FileItems in the data property
    * @throws Error if directory reading fails
    */
-  async getFolder(dirPath: string): Promise<FileOperationResult> {
+  async getFolder(dirPath: string): Promise<FileItemResult> {
     try {
       this.log(`Reading directory at path: ${dirPath}`);
       const fullPath = path.join(this.synapse.workDir, dirPath);
@@ -348,5 +358,85 @@ export class Filesystem {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  /**
+   * Starts watching a directory for changes and calls the callback with the updated file path and content.
+   * @param onChange - Callback to call with the path and new content of the changed file
+   */
+  watchWorkDir(
+    onChange: (result: { path: string; content: string | null }) => void,
+  ): void {
+    const fullPath = path.join(this.synapse.workDir);
+    if (this.folderWatchers.has(fullPath)) {
+      return;
+    }
+
+    // Read and parse .gitignore from the root of the workspace
+    let ig: ReturnType<typeof ignore> | null = null;
+    try {
+      const gitignorePath = path.join(this.synapse.workDir, ".gitignore");
+      const gitignoreContent = fsSync.existsSync(gitignorePath)
+        ? fsSync.readFileSync(gitignorePath, "utf-8")
+        : "";
+      ig = ignore().add(gitignoreContent);
+    } catch {
+      ig = null;
+    }
+
+    const watcher = fsSync.watch(
+      fullPath,
+      { recursive: true },
+      async (eventType, filename) => {
+        if (!filename) return;
+        // filename is relative to workDir
+        // ignore always expects forward slashes
+        const relPath = filename.replace(/\\/g, "/");
+        if (ig && ig.ignores(relPath)) {
+          return; // ignore this change
+        }
+        const changedPath = path.join("/", filename); // relative to workDir
+        const absPath = path.join(this.synapse.workDir, filename);
+
+        try {
+          const stat = await fs.lstat(absPath);
+          if (stat.isFile()) {
+            const content = await fs.readFile(absPath, "utf-8");
+            onChange({ path: changedPath, content });
+          } else {
+            // It's a directory, not a file
+            onChange({ path: changedPath, content: null });
+          }
+        } catch {
+          // File might have been deleted or is inaccessible
+          onChange({ path: changedPath, content: null });
+        }
+      },
+    );
+
+    this.folderWatchers.set(fullPath, watcher);
+  }
+
+  /**
+   * Stops watching a directory for changes.
+   */
+  unwatchWorkDir(): void {
+    const fullPath = path.join(this.synapse.workDir);
+    const watcher = this.folderWatchers.get(fullPath);
+    if (watcher) {
+      watcher.close();
+      this.folderWatchers.delete(fullPath);
+    }
+  }
+
+  /**
+   * Cleans up all folder watchers and releases resources.
+   */
+  cleanup(): void {
+    this.log("Cleaning up all folder watchers");
+    for (const [, watcher] of this.folderWatchers.entries()) {
+      watcher.close();
+    }
+    this.folderWatchers.clear();
   }
 }

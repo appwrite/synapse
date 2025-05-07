@@ -2,6 +2,7 @@ import fs from "fs";
 import { IncomingMessage } from "http";
 import { Socket } from "net";
 import WebSocket, { WebSocketServer } from "ws";
+import { Filesystem } from "./services/filesystem";
 import { Terminal } from "./services/terminal";
 
 export type MessagePayload = {
@@ -15,7 +16,6 @@ export type Connection = {
   id: string;
   path: string;
   params: Record<string, string> | null;
-  reconnectAttempts: number;
 };
 
 export type MessageHandler = (
@@ -47,11 +47,7 @@ class Synapse {
   };
 
   private terminals: Set<Terminal> = new Set();
-
-  private isReconnecting = false;
-  private maxReconnectAttempts = 5;
-  private reconnectInterval = 3000;
-  private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  private filesystem: Filesystem | undefined;
 
   private host: string;
   private port: number;
@@ -116,7 +112,10 @@ class Synapse {
       id: connectionId,
       path,
       params,
-      reconnectAttempts: 0,
+    });
+
+    ws.on("ping", () => {
+      ws.pong();
     });
 
     ws.onmessage = (event) => this.handleMessage(event, connectionId);
@@ -128,7 +127,13 @@ class Synapse {
         event.reason,
         event.wasClean,
       );
-      this.attemptReconnect(connectionId);
+
+      this.disconnect(connectionId);
+
+      if (this.connections.size === 0) {
+        // clean up all resources
+        this.disconnect();
+      }
     };
 
     ws.onerror = (error) => {
@@ -137,55 +142,6 @@ class Synapse {
     };
 
     this.connectionListeners.onOpen(connectionId);
-  }
-
-  private attemptReconnect(connectionId: string) {
-    const connection = this.connections.get(connectionId);
-    if (!connection) return;
-
-    if (
-      this.isReconnecting ||
-      connection.reconnectAttempts >= this.maxReconnectAttempts
-    ) {
-      this.connections.delete(connectionId);
-      return;
-    }
-
-    this.isReconnecting = true;
-    connection.reconnectAttempts++;
-
-    const timeout = setTimeout(() => {
-      this.log(
-        `Attempting to reconnect connection ${connectionId} (${connection.reconnectAttempts}/${this.maxReconnectAttempts})...`,
-      );
-      this.connect(connection.path || "/")
-        .then((newConnectionId) => {
-          this.isReconnecting = false;
-          this.log(
-            `Reconnection successful with new connection ID: ${newConnectionId}`,
-          );
-          // Copy any necessary state from old connection to new connection
-          const newConnection = this.connections.get(newConnectionId);
-          if (newConnection) {
-            newConnection.params = connection.params;
-          }
-          // Delete the old connection
-          this.connections.delete(connectionId);
-        })
-        .catch((error) => {
-          this.isReconnecting = false;
-          this.log(
-            `Reconnection failed for connection ${connectionId}: ${error.message}`,
-          );
-          if (connection.reconnectAttempts < this.maxReconnectAttempts) {
-            this.attemptReconnect(connectionId);
-          } else {
-            this.connections.delete(connectionId);
-          }
-        });
-    }, this.reconnectInterval);
-
-    this.reconnectTimeouts.set(connectionId, timeout);
   }
 
   private handleMessage(
@@ -198,12 +154,13 @@ class Synapse {
 
       if (!connection) return;
 
-      if (data === "ping" && connection.ws) {
-        connection.ws.send("pong");
+      let message: MessagePayload;
+      if (typeof data === "string") {
+        message = JSON.parse(data);
+      } else {
+        this.log(`Received binary data from connection ${connectionId}`);
         return;
       }
-
-      const message: MessagePayload = JSON.parse(data);
 
       if (this.messageHandlers[message.type]) {
         this.messageHandlers[message.type](message, connectionId);
@@ -238,6 +195,14 @@ class Synapse {
   }
 
   /**
+   * Sets the Filesystem instance to be managed by Synapse
+   * @param filesystem - The Filesystem instance
+   */
+  setFilesystem(filesystem: Filesystem): void {
+    this.filesystem = filesystem;
+  }
+
+  /**
    * Sets the working directory for the Synapse instance
    * @param workDir - The path to the working directory
    * @returns void
@@ -269,37 +234,6 @@ class Synapse {
       success: true,
       data: "Work directory updated successfully",
     };
-  }
-
-  /**
-   * Cancels the reconnection process for a specific connection
-   * @param connectionId - The ID of the connection to cancel reconnection for, or all if not specified
-   * @returns void
-   */
-  cancelReconnect(connectionId?: string): void {
-    if (connectionId) {
-      const timeout = this.reconnectTimeouts.get(connectionId);
-      if (timeout) {
-        clearTimeout(timeout);
-        this.reconnectTimeouts.delete(connectionId);
-      }
-
-      const connection = this.connections.get(connectionId);
-      if (connection) {
-        connection.reconnectAttempts = this.maxReconnectAttempts;
-      }
-    } else {
-      this.reconnectTimeouts.forEach((timeout) => {
-        clearTimeout(timeout);
-      });
-      this.reconnectTimeouts.clear();
-
-      this.connections.forEach((connection) => {
-        connection.reconnectAttempts = this.maxReconnectAttempts;
-      });
-    }
-
-    this.isReconnecting = false;
   }
 
   /**
@@ -490,26 +424,6 @@ class Synapse {
    * @param head - The first packet of the upgraded stream
    */
   handleUpgrade(req: IncomingMessage, socket: Socket, head: Buffer): void {
-    let params: Record<string, string> | null = null;
-    let path = "/";
-
-    if (req.url) {
-      path = req.url.split("?")[0];
-      const query = req.url.split("?")[1];
-      if (query) {
-        try {
-          params = JSON.parse(query);
-        } catch {
-          params = Object.fromEntries(
-            query.split("&").map((kv) => {
-              const [k, v] = kv.split("=");
-              return [decodeURIComponent(k), decodeURIComponent(v ?? "")];
-            }),
-          );
-        }
-      }
-    }
-
     this.wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
       this.wss.emit("connection", ws, req);
     });
@@ -542,7 +456,6 @@ class Synapse {
    */
   disconnect(connectionId?: string): void {
     if (connectionId) {
-      this.cancelReconnect(connectionId);
       const connection = this.connections.get(connectionId);
       if (connection) {
         connection.ws.close();
@@ -550,10 +463,15 @@ class Synapse {
       }
     } else {
       // Close all connections
-      this.cancelReconnect();
       this.connections.forEach((connection) => {
         connection.ws.close();
       });
+      this.terminals.forEach((terminal) => {
+        terminal.kill();
+      });
+      if (this.filesystem) {
+        this.filesystem.cleanup();
+      }
       this.connections.clear();
       this.wss.close();
     }
