@@ -500,26 +500,6 @@ class Synapse {
    * @param head - The first packet of the upgraded stream
    */
   handleUpgrade(req: IncomingMessage, socket: Socket, head: Buffer): void {
-    let params: Record<string, string> | null = null;
-    let path = "/";
-
-    if (req.url) {
-      path = req.url.split("?")[0];
-      const query = req.url.split("?")[1];
-      if (query) {
-        try {
-          params = JSON.parse(query);
-        } catch {
-          params = Object.fromEntries(
-            query.split("&").map((kv) => {
-              const [k, v] = kv.split("=");
-              return [decodeURIComponent(k), decodeURIComponent(v ?? "")];
-            }),
-          );
-        }
-      }
-    }
-
     this.wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
       this.wss.emit("connection", ws, req);
     });
