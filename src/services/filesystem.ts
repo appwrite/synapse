@@ -25,6 +25,7 @@ export class Filesystem {
    */
   constructor(synapse: Synapse) {
     this.synapse = synapse;
+    this.synapse.setFilesystem(this);
   }
 
   private log(message: string): void {
