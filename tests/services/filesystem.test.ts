@@ -20,6 +20,7 @@ describe("Filesystem", () => {
     mockSynapse = jest.mocked({
       logger: jest.fn(),
       workDir: "/test",
+      setFilesystem: jest.fn(),
     } as unknown as Synapse);
 
     filesystem = new Filesystem(mockSynapse);
@@ -145,11 +146,11 @@ describe("Filesystem", () => {
       const onChangeMock = jest.fn();
 
       // Call the method being tested
-      filesystem.watchFolder(dirPath, onChangeMock);
+      filesystem.watchWorkDir(onChangeMock);
 
       // Verify watch was called with correct path
       expect(fsSync.watch).toHaveBeenCalledWith(
-        "/test/test-dir",
+        mockSynapse.workDir,
         { recursive: false },
         expect.any(Function),
       );
@@ -161,14 +162,14 @@ describe("Filesystem", () => {
       }
 
       // Verify our onChange callback was called with the result of getFolder
-      expect(filesystem.getFolder).toHaveBeenCalledWith(dirPath);
+      expect(filesystem.getFolder).toHaveBeenCalledWith(mockSynapse.workDir);
       expect(onChangeMock).toHaveBeenCalledWith({
         success: true,
         data: fileItems,
       });
 
       // Also test unwatchFolder
-      filesystem.unwatchFolder(dirPath);
+      filesystem.unwatchWorkDir();
       expect(mockWatcher.close).toHaveBeenCalled();
     });
   });

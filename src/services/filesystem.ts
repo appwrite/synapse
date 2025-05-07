@@ -355,20 +355,16 @@ export class Filesystem {
 
   /**
    * Starts watching a directory for changes and calls the callback with the updated folder structure.
-   * @param dirPath - The directory path to watch (relative to workDir)
    * @param onChange - Callback to call with the result of getFolder when a change is detected
    */
-  watchFolder(
-    dirPath: string,
-    onChange: (result: FileOperationResult) => void,
-  ): void {
-    const fullPath = path.join(this.synapse.workDir, dirPath);
+  watchWorkDir(onChange: (result: FileOperationResult) => void): void {
+    const fullPath = path.join(this.synapse.workDir);
     if (this.folderWatchers.has(fullPath)) {
       return;
     }
 
     const watcher = fsSync.watch(fullPath, { recursive: false }, async () => {
-      const result = await this.getFolder(dirPath);
+      const result = await this.getFolder(this.synapse.workDir);
       onChange(result);
     });
 
@@ -377,10 +373,9 @@ export class Filesystem {
 
   /**
    * Stops watching a directory for changes.
-   * @param dirPath - The directory path to stop watching (relative to workDir)
    */
-  unwatchFolder(dirPath: string): void {
-    const fullPath = path.join(this.synapse.workDir, dirPath);
+  unwatchWorkDir(): void {
+    const fullPath = path.join(this.synapse.workDir);
     const watcher = this.folderWatchers.get(fullPath);
     if (watcher) {
       watcher.close();
