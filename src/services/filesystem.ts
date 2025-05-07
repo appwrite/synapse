@@ -364,7 +364,7 @@ export class Filesystem {
     }
 
     const watcher = fsSync.watch(fullPath, { recursive: false }, async () => {
-      const result = await this.getFolder(this.synapse.workDir);
+      const result = await this.getFolder("/");
       onChange(result);
     });
 

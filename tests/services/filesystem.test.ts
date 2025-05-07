@@ -111,7 +111,6 @@ describe("Filesystem", () => {
 
   describe("watchFolder", () => {
     it("should set up a watcher and call callback on file changes", async () => {
-      const dirPath = "/test-dir";
       const mockWatcher = {
         close: jest.fn(),
       };
@@ -150,7 +149,7 @@ describe("Filesystem", () => {
 
       // Verify watch was called with correct path
       expect(fsSync.watch).toHaveBeenCalledWith(
-        mockSynapse.workDir,
+        mockSynapse.workDir, // even tho path is "/", method will be called workDir + path
         { recursive: false },
         expect.any(Function),
       );
@@ -162,7 +161,7 @@ describe("Filesystem", () => {
       }
 
       // Verify our onChange callback was called with the result of getFolder
-      expect(filesystem.getFolder).toHaveBeenCalledWith(mockSynapse.workDir);
+      expect(filesystem.getFolder).toHaveBeenCalledWith("/");
       expect(onChangeMock).toHaveBeenCalledWith({
         success: true,
         data: fileItems,
