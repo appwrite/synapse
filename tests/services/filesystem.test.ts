@@ -110,7 +110,7 @@ describe("Filesystem", () => {
   });
 
   describe("watchFolder", () => {
-    it("should set up a watcher and call callback on file changes", async () => {
+    it("should set up a watcher and call callback on file changes, respecting .gitignore", async () => {
       const mockWatcher = {
         close: jest.fn(),
       };
@@ -118,27 +118,30 @@ describe("Filesystem", () => {
       // Mock the watcher
       (fsSync.watch as jest.Mock).mockReturnValue(mockWatcher);
 
-      // Mock getFolder to return some file items
-      const fileItems = [
-        { name: "file1.txt", isDirectory: false },
-        { name: "dir1", isDirectory: true },
-      ];
+      // Mock getFolderTree to return a tree that excludes ignored files/folders
+      const fileTree = {
+        name: "/",
+        isDirectory: true,
+        children: [
+          { name: "file1.txt", isDirectory: false },
+          { name: "dir1", isDirectory: true, children: [] },
+          // Suppose ".env" is in .gitignore and should not appear
+        ],
+      };
 
       // Create a spy implementation to capture the watch callback
-      let watchCallback:
-        | ((eventType: string, filename: string) => void)
-        | null = null;
+      let watchCallback: (() => void) | null = null;
       (fsSync.watch as jest.Mock).mockImplementation(
         (path, options, callback) => {
-          watchCallback = callback;
+          watchCallback = callback as () => void;
           return mockWatcher;
         },
       );
 
-      // Make getFolder resolve with test data when called later
-      filesystem.getFolder = jest.fn().mockResolvedValue({
+      // Mock getFolderTree to resolve with test data when called later
+      filesystem.getFolderTree = jest.fn().mockResolvedValue({
         success: true,
-        data: fileItems,
+        data: fileTree,
       });
 
       // Set up the callback spy
@@ -149,22 +152,24 @@ describe("Filesystem", () => {
 
       // Verify watch was called with correct path
       expect(fsSync.watch).toHaveBeenCalledWith(
-        mockSynapse.workDir, // even tho path is "/", method will be called workDir + path
-        { recursive: false },
+        mockSynapse.workDir,
+        { recursive: true },
         expect.any(Function),
       );
 
-      // Now simulate a file change event
+      // Simulate a file change event
       if (watchCallback) {
-        // @ts-ignore
-        await watchCallback("change", "file1.txt");
+        (watchCallback as () => void)();
       }
 
-      // Verify our onChange callback was called with the result of getFolder
-      expect(filesystem.getFolder).toHaveBeenCalledWith("/");
+      // Wait for the callback to be called
+      await new Promise((resolve) => setImmediate(resolve));
+
+      // Now assert
+      expect(filesystem.getFolderTree).toHaveBeenCalledWith("/");
       expect(onChangeMock).toHaveBeenCalledWith({
         success: true,
-        data: fileItems,
+        data: fileTree,
       });
 
       // Also test unwatchFolder

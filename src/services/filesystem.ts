@@ -1,6 +1,7 @@
 import * as fsSync from "fs";
 import { constants as fsConstants } from "fs";
 import * as fs from "fs/promises";
+import ignore from "ignore";
 import * as path from "path";
 import { Synapse } from "../synapse";
 
@@ -9,9 +10,23 @@ export type FileItem = {
   isDirectory: boolean;
 };
 
+export type FileItemTree = FileItem & { children?: FileItemTree[] };
+
+export type FileItemTreeResult = {
+  success: boolean;
+  data?: FileItemTree;
+  error?: string;
+};
+
+export type FileItemResult = {
+  success: boolean;
+  data?: FileItem[];
+  error?: string;
+};
+
 export type FileOperationResult = {
   success: boolean;
-  data?: string | FileItem[];
+  data?: string;
   error?: string;
 };
 
@@ -243,7 +258,7 @@ export class Filesystem {
    * @returns Promise<FileOperationResult> containing array of FileItems in the data property
    * @throws Error if directory reading fails
    */
-  async getFolder(dirPath: string): Promise<FileOperationResult> {
+  async getFolder(dirPath: string): Promise<FileItemResult> {
     try {
       this.log(`Reading directory at path: ${dirPath}`);
       const fullPath = path.join(this.synapse.workDir, dirPath);
@@ -258,6 +273,77 @@ export class Filesystem {
     } catch (error) {
       this.log(
         `Error reading directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Recursively reads a directory and returns its tree structure
+   * @param dirPath - The path to the directory to read
+   * @returns Promise<FileOperationResult> containing the directory tree
+   */
+  async getFolderTree(dirPath: string): Promise<FileItemTreeResult> {
+    // Read and parse .gitignore from the root of the workspace
+    let ig: ReturnType<typeof ignore> | null = null;
+    try {
+      const gitignorePath = path.join(this.synapse.workDir, ".gitignore");
+      const gitignoreContent = await fs.readFile(gitignorePath, "utf-8");
+      ig = ignore().add(gitignoreContent);
+    } catch {
+      // If .gitignore does not exist, proceed without ignoring anything
+      ig = null;
+    }
+
+    // Helper function to recursively read directories
+    const readDirRecursive = async (
+      currentPath: string,
+    ): Promise<FileItemTree | null> => {
+      // Compute the relative path from the root for ignore matching
+      const relPath = path.relative("/", currentPath).replace(/\\/g, "/");
+      // Skip if ignored (but always include the root)
+      if (ig && relPath && ig.ignores(relPath)) {
+        return null;
+      }
+      const fullPath = path.join(this.synapse.workDir, currentPath);
+      const stat = await fs.lstat(fullPath);
+      const isDirectory = stat.isDirectory();
+      const item: FileItemTree = {
+        name: path.basename(currentPath),
+        isDirectory,
+      };
+      if (isDirectory) {
+        try {
+          const items = await fs.readdir(fullPath);
+          const children = await Promise.all(
+            items.map((child) =>
+              readDirRecursive(path.join(currentPath, child)),
+            ),
+          );
+          item.children = children.filter(Boolean) as FileItemTree[];
+        } catch {
+          item.children = [];
+        }
+      }
+      return item;
+    };
+
+    try {
+      this.log(`Reading directory tree at path: ${dirPath}`);
+      const tree = await readDirRecursive(dirPath);
+      if (!tree) {
+        return {
+          success: false,
+          error: "All files/folders are ignored by .gitignore",
+        };
+      }
+      return { success: true, data: tree };
+    } catch (error) {
+      this.log(
+        `Error reading directory tree ${dirPath}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,
@@ -357,14 +443,14 @@ export class Filesystem {
    * Starts watching a directory for changes and calls the callback with the updated folder structure.
    * @param onChange - Callback to call with the result of getFolder when a change is detected
    */
-  watchWorkDir(onChange: (result: FileOperationResult) => void): void {
+  watchWorkDir(onChange: (result: FileItemTreeResult) => void): void {
     const fullPath = path.join(this.synapse.workDir);
     if (this.folderWatchers.has(fullPath)) {
       return;
     }
 
-    const watcher = fsSync.watch(fullPath, { recursive: false }, async () => {
-      const result = await this.getFolder("/");
+    const watcher = fsSync.watch(fullPath, { recursive: true }, async () => {
+      const result = await this.getFolderTree("/");
       onChange(result);
     });
 

@@ -76,7 +76,7 @@ describe("Synapse", () => {
 
       // Simulate close event
       const closeEvent = { code: 4001, reason: "Test reason", wasClean: true };
-      mockWs.onclose && mockWs.onclose(closeEvent as any);
+      if (mockWs.onclose) mockWs.onclose(closeEvent as any);
 
       expect(onCloseMock).toHaveBeenCalledWith(
         "conn1",
