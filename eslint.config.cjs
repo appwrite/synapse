@@ -20,6 +20,16 @@ module.exports = [
     },
     rules: {
       ...typescript.configs["recommended"].rules,
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        {
+          tsExpectError: false,
+          tsIgnore: false,
+          tsNocheck: true,
+          tsCheck: true,
+        },
+      ],
     },
   },
 ];
