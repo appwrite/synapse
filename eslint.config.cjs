@@ -24,10 +24,10 @@ module.exports = [
       "@typescript-eslint/ban-ts-comment": [
         "error",
         {
-          tsExpectError: false,
-          tsIgnore: false,
-          tsNocheck: true,
-          tsCheck: true,
+          "ts-expect-error": false,
+          "ts-ignore": false,
+          "ts-nocheck": true,
+          "ts-check": true,
         },
       ],
     },
