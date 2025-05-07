@@ -1,5 +1,6 @@
 import * as fsSync from "fs";
 import * as fs from "fs/promises";
+import ignore from "ignore";
 import { Filesystem } from "../../src/services/filesystem";
 import { Synapse } from "../../src/synapse";
 
@@ -7,10 +8,13 @@ jest.mock("fs/promises");
 jest.mock("fs", () => ({
   ...jest.requireActual("fs"),
   watch: jest.fn(),
+  existsSync: jest.fn(),
+  readFileSync: jest.fn(),
   constants: {
     F_OK: 0,
   },
 }));
+jest.mock("ignore");
 
 describe("Filesystem", () => {
   let filesystem: Filesystem;
@@ -115,34 +119,36 @@ describe("Filesystem", () => {
         close: jest.fn(),
       };
 
-      // Mock the watcher
+      // Mock the filesystem functions
       (fsSync.watch as jest.Mock).mockReturnValue(mockWatcher);
+      (fsSync.existsSync as jest.Mock).mockReturnValue(true);
+      (fsSync.readFileSync as jest.Mock).mockReturnValue(
+        "*.env\nnode_modules/",
+      );
 
-      // Mock getFolderTree to return a tree that excludes ignored files/folders
-      const fileTree = {
-        name: "/",
-        isDirectory: true,
-        children: [
-          { name: "file1.txt", isDirectory: false },
-          { name: "dir1", isDirectory: true, children: [] },
-          // Suppose ".env" is in .gitignore and should not appear
-        ],
+      // Mock ignore implementation
+      const mockIgnore = {
+        add: jest.fn().mockReturnThis(),
+        ignores: jest.fn().mockImplementation((path) => path.includes(".env")),
       };
+      (ignore as unknown as jest.Mock).mockReturnValue(mockIgnore);
 
       // Create a spy implementation to capture the watch callback
-      let watchCallback: (() => void) | null = null;
+      let watchCallback:
+        | ((eventType: string, filename: string) => void)
+        | null = null;
       (fsSync.watch as jest.Mock).mockImplementation(
         (path, options, callback) => {
-          watchCallback = callback as () => void;
+          watchCallback = callback;
           return mockWatcher;
         },
       );
 
-      // Mock getFolderTree to resolve with test data when called later
-      filesystem.getFolderTree = jest.fn().mockResolvedValue({
-        success: true,
-        data: fileTree,
+      // Mock fs.lstat and fs.readFile for the file change event
+      (fs.lstat as jest.Mock).mockResolvedValue({
+        isFile: jest.fn().mockReturnValue(true),
       });
+      (fs.readFile as jest.Mock).mockResolvedValue("file content");
 
       // Set up the callback spy
       const onChangeMock = jest.fn();
@@ -157,20 +163,30 @@ describe("Filesystem", () => {
         expect.any(Function),
       );
 
-      // Simulate a file change event
+      // Simulate a file change event for a non-ignored file
       if (watchCallback) {
-        (watchCallback as () => void)();
+        // @ts-ignore
+        watchCallback("change", "file1.txt");
       }
 
-      // Wait for the callback to be called
+      // Wait for the async callbacks to complete
       await new Promise((resolve) => setImmediate(resolve));
 
-      // Now assert
-      expect(filesystem.getFolderTree).toHaveBeenCalledWith("/");
+      // Check callback was called with correct data
       expect(onChangeMock).toHaveBeenCalledWith({
-        success: true,
-        data: fileTree,
+        path: "/file1.txt",
+        content: "file content",
       });
+
+      // Test that ignored files don't trigger the callback
+      onChangeMock.mockClear();
+      if (watchCallback) {
+        // @ts-ignore
+        watchCallback("change", ".env");
+      }
+
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(onChangeMock).not.toHaveBeenCalled();
 
       // Also test unwatchFolder
       filesystem.unwatchWorkDir();
