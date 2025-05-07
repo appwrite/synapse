@@ -13,6 +13,7 @@ const createMockWebSocket = (options: { readyState?: number } = {}) => ({
   readyState: options.readyState ?? WebSocket.OPEN,
   send: jest.fn(),
   close: jest.fn(),
+  on: jest.fn(),
 });
 
 describe("Synapse", () => {

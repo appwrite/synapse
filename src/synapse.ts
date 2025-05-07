@@ -119,6 +119,10 @@ class Synapse {
       reconnectAttempts: 0,
     });
 
+    ws.on("ping", () => {
+      ws.pong();
+    });
+
     ws.onmessage = (event) => this.handleMessage(event, connectionId);
 
     ws.onclose = (event) => {
@@ -203,12 +207,13 @@ class Synapse {
 
       if (!connection) return;
 
-      if (data === "ping" && connection.ws) {
-        connection.ws.send("pong");
+      let message: MessagePayload;
+      if (typeof data === "string") {
+        message = JSON.parse(data);
+      } else {
+        this.log(`Received binary data from connection ${connectionId}`);
         return;
       }
-
-      const message: MessagePayload = JSON.parse(data);
 
       if (this.messageHandlers[message.type]) {
         this.messageHandlers[message.type](message, connectionId);
