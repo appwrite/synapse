@@ -193,4 +193,19 @@ describe("Filesystem", () => {
       expect(mockWatcher.close).toHaveBeenCalled();
     });
   });
+
+  describe("appendFile", () => {
+    it("should append content to a file", async () => {
+      const filePath = "/file.txt";
+      const content = "appended content";
+      (fs.appendFile as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await filesystem.appendFile(filePath, content);
+      expect(fs.appendFile).toHaveBeenCalledWith(
+        expect.stringContaining(filePath),
+        content,
+      );
+      expect(result).toEqual({ success: true });
+    });
+  });
 });

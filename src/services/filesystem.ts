@@ -159,6 +159,32 @@ export class Filesystem {
   }
 
   /**
+   * Appends content to a file
+   * @param filePath - The path to the file to append to
+   * @param content - The content to append to the file
+   * @returns Promise<FileOperationResult> indicating success or failure
+   * @throws Error if file appending fails
+   */
+  async appendFile(
+    filePath: string,
+    content: string,
+  ): Promise<FileOperationResult> {
+    try {
+      const fullPath = path.join(this.synapse.workDir, filePath);
+      await fs.appendFile(fullPath, content);
+      return { success: true };
+    } catch (error) {
+      this.log(
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
    * Updates the path of a file
    * @param oldPath - The old path of the file
    * @param newPath - The new path of the file
