@@ -27,7 +27,7 @@ describe("Filesystem", () => {
       setFilesystem: jest.fn(),
     } as unknown as Synapse);
 
-    filesystem = new Filesystem(mockSynapse);
+    filesystem = new Filesystem(mockSynapse, "/test");
     jest.clearAllMocks();
   });
 
