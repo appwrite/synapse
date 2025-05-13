@@ -1,3 +1,4 @@
+import fs from "fs";
 import * as pty from "node-pty";
 import { Terminal, TerminalOptions } from "../../src/services/terminal";
 import { Synapse } from "../../src/synapse";
@@ -9,7 +10,6 @@ describe("Terminal", () => {
   let mockSynapse: Synapse;
   let mockPty: jest.Mocked<pty.IPty>;
   let onDataHandler: (data: string) => void;
-  let onExitHandler: () => void;
 
   beforeEach(() => {
     mockSynapse = new Synapse();
@@ -18,8 +18,7 @@ describe("Terminal", () => {
         onDataHandler = callback;
         return mockPty;
       }),
-      onExit: jest.fn((callback) => {
-        onExitHandler = callback;
+      onExit: jest.fn(() => {
         return mockPty;
       }),
       write: jest.fn(),
@@ -35,6 +34,7 @@ describe("Terminal", () => {
   describe("basic terminal functionality", () => {
     beforeEach(() => {
       terminal = new Terminal(mockSynapse);
+      jest.spyOn(fs, "existsSync").mockReturnValue(true);
     });
 
     it("should initialize with correct state", () => {
@@ -60,6 +60,7 @@ describe("Terminal", () => {
   describe("terminal operations", () => {
     beforeEach(() => {
       terminal = new Terminal(mockSynapse);
+      jest.spyOn(fs, "existsSync").mockReturnValue(true);
     });
 
     it("should update working directory", () => {

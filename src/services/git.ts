@@ -190,4 +190,15 @@ export class Git {
   async push(): Promise<GitOperationResult> {
     return this.execute(["push"]);
   }
+
+  /**
+   * Updates the working directory
+   * @param workDir - The new working directory
+   */
+  updateWorkDir(workDir: string): void {
+    if (!fs.existsSync(workDir)) {
+      fs.mkdirSync(workDir, { recursive: true });
+    }
+    this.workDir = workDir;
+  }
 }

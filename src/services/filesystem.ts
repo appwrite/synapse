@@ -465,6 +465,17 @@ export class Filesystem {
   }
 
   /**
+   * Updates the working directory
+   * @param workDir - The new working directory
+   */
+  updateWorkDir(workDir: string): void {
+    if (!fsSync.existsSync(workDir)) {
+      fsSync.mkdirSync(workDir, { recursive: true });
+    }
+    this.workDir = workDir;
+  }
+
+  /**
    * Cleans up all folder watchers and releases resources.
    */
   cleanup(): void {

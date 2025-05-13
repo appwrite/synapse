@@ -1,3 +1,4 @@
+import fs from "fs";
 import * as pty from "node-pty";
 import * as os from "os";
 import { Synapse } from "../synapse";
@@ -150,6 +151,10 @@ export class Terminal {
    */
   updateWorkDir(workDir: string): void {
     try {
+      if (!fs.existsSync(workDir)) {
+        fs.mkdirSync(workDir, { recursive: true });
+      }
+
       this.checkTerminal();
       this.createCommand(`cd "${workDir}"\n`);
     } catch (error) {
