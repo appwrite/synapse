@@ -402,7 +402,7 @@ export class Filesystem {
   watchWorkDir(
     onChange: (result: { path: string; content: string | null }) => void,
   ): void {
-    const fullPath = this.resolvePath("");
+    const fullPath = this.resolvePath(this.workDir);
     if (this.folderWatchers.has(fullPath)) {
       return;
     }
@@ -456,7 +456,7 @@ export class Filesystem {
    * Stops watching a directory for changes.
    */
   unwatchWorkDir(): void {
-    const fullPath = this.resolvePath("");
+    const fullPath = this.resolvePath(this.workDir);
     const watcher = this.folderWatchers.get(fullPath);
     if (watcher) {
       watcher.close();
