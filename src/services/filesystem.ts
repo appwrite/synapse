@@ -42,6 +42,13 @@ export class Filesystem {
     console.log(`[Filesystem][${timestamp}] ${message}`);
   }
 
+  private resolvePath(inputPath: string): string {
+    if (path.isAbsolute(inputPath)) {
+      return inputPath;
+    }
+    return path.join(this.workDir, inputPath);
+  }
+
   /**
    * Creates a new file at the specified path with optional content.
    * Fails if the file already exists.
@@ -54,7 +61,7 @@ export class Filesystem {
     filePath: string,
     content: string = "",
   ): Promise<FileOperationResult> {
-    const fullPath = path.join(this.workDir, filePath);
+    const fullPath = this.resolvePath(filePath);
 
     try {
       await fs.access(fullPath, fsConstants.F_OK);
@@ -113,7 +120,7 @@ export class Filesystem {
    */
   async getFile(filePath: string): Promise<FileOperationResult> {
     try {
-      const fullPath = path.join(this.workDir, filePath);
+      const fullPath = this.resolvePath(filePath);
 
       const data = await fs.readFile(fullPath, "utf-8");
 
@@ -142,7 +149,7 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log(`Updating file at path: ${filePath}`);
-      const fullPath = path.join(this.workDir, filePath);
+      const fullPath = this.resolvePath(filePath);
       const dirPath = path.dirname(filePath);
 
       await this.createFolder(dirPath);
@@ -172,7 +179,7 @@ export class Filesystem {
     content: string,
   ): Promise<FileOperationResult> {
     try {
-      const fullPath = path.join(this.workDir, filePath);
+      const fullPath = this.resolvePath(filePath);
       await fs.appendFile(fullPath, content);
       return { success: true };
     } catch (error) {
@@ -199,8 +206,8 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log(`Moving file from ${oldPath} to ${newPath}`);
-      const fullOldPath = path.join(this.workDir, oldPath);
-      const fullNewPath = path.join(this.workDir, newPath);
+      const fullOldPath = this.resolvePath(oldPath);
+      const fullNewPath = this.resolvePath(newPath);
 
       await fs.rename(fullOldPath, fullNewPath);
 
@@ -225,7 +232,7 @@ export class Filesystem {
   async deleteFile(filePath: string): Promise<FileOperationResult> {
     try {
       this.log(`Deleting file at path: ${filePath}`);
-      const fullPath = path.join(this.workDir, filePath);
+      const fullPath = this.resolvePath(filePath);
 
       await fs.unlink(fullPath);
 
@@ -248,12 +255,12 @@ export class Filesystem {
    * @throws Error if directory creation fails
    */
   async createFolder(dirPath: string): Promise<FileOperationResult> {
+    const fullPath = this.resolvePath(dirPath);
+
     if (dirPath === "." || dirPath === "" || dirPath === "/") {
       // Skip creation for root or relative '.' path
       return { success: true };
     }
-
-    const fullPath = path.join(this.workDir, dirPath);
 
     try {
       await fs.mkdir(fullPath, { recursive: true });
@@ -281,7 +288,7 @@ export class Filesystem {
   async getFolder(dirPath: string): Promise<FileItemResult> {
     try {
       this.log(`Reading directory at path: ${dirPath}`);
-      const fullPath = path.join(this.workDir, dirPath);
+      const fullPath = this.resolvePath(dirPath);
 
       const items = await fs.readdir(fullPath, { withFileTypes: true });
       const data: FileItem[] = items.map((item) => ({
@@ -314,7 +321,7 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log(`Renaming folder at ${dirPath} to ${name}`);
-      const fullPath = path.join(this.workDir, dirPath);
+      const fullPath = this.resolvePath(dirPath);
 
       const dir = path.dirname(fullPath);
       const newPath = path.join(dir, name);
@@ -346,8 +353,8 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log(`Moving folder from ${oldPath} to ${newPath}`);
-      const fullOldPath = path.join(this.workDir, oldPath);
-      const fullNewPath = path.join(this.workDir, newPath);
+      const fullOldPath = this.resolvePath(oldPath);
+      const fullNewPath = this.resolvePath(newPath);
 
       await fs.rename(fullOldPath, fullNewPath);
 
@@ -372,7 +379,7 @@ export class Filesystem {
   async deleteFolder(dirPath: string): Promise<FileOperationResult> {
     try {
       this.log(`Deleting folder at path: ${dirPath}`);
-      const fullPath = path.join(this.workDir, dirPath);
+      const fullPath = this.resolvePath(dirPath);
 
       await fs.rm(fullPath, { recursive: true });
 
@@ -395,7 +402,7 @@ export class Filesystem {
   watchWorkDir(
     onChange: (result: { path: string; content: string | null }) => void,
   ): void {
-    const fullPath = path.join(this.workDir);
+    const fullPath = this.resolvePath("");
     if (this.folderWatchers.has(fullPath)) {
       return;
     }
@@ -403,7 +410,7 @@ export class Filesystem {
     // Read and parse .gitignore from the root of the workspace
     let ig: ReturnType<typeof ignore> | null = null;
     try {
-      const gitignorePath = path.join(this.workDir, ".gitignore");
+      const gitignorePath = this.resolvePath(".gitignore");
       const gitignoreContent = fsSync.existsSync(gitignorePath)
         ? fsSync.readFileSync(gitignorePath, "utf-8")
         : "";
@@ -449,7 +456,7 @@ export class Filesystem {
    * Stops watching a directory for changes.
    */
   unwatchWorkDir(): void {
-    const fullPath = path.join(this.workDir);
+    const fullPath = this.resolvePath("");
     const watcher = this.folderWatchers.get(fullPath);
     if (watcher) {
       watcher.close();
