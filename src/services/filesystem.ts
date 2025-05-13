@@ -34,7 +34,15 @@ export class Filesystem {
   constructor(synapse: Synapse, workDir?: string) {
     this.synapse = synapse;
     this.synapse.setFilesystem(this);
-    this.workDir = workDir ?? process.cwd();
+
+    if (workDir) {
+      if (!fsSync.existsSync(workDir)) {
+        fsSync.mkdirSync(workDir, { recursive: true });
+      }
+      this.workDir = workDir;
+    } else {
+      this.workDir = process.cwd();
+    }
   }
 
   private log(message: string): void {

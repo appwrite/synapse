@@ -19,7 +19,15 @@ export class Git {
    */
   constructor(synapse: Synapse, workDir?: string) {
     this.synapse = synapse;
-    this.workDir = workDir ?? process.cwd();
+
+    if (workDir) {
+      if (!fs.existsSync(workDir)) {
+        fs.mkdirSync(workDir, { recursive: true });
+      }
+      this.workDir = workDir;
+    } else {
+      this.workDir = process.cwd();
+    }
   }
 
   private isErrnoException(error: unknown): error is NodeJS.ErrnoException {

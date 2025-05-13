@@ -7,7 +7,7 @@ export type TerminalOptions = {
   shell: string;
   cols?: number;
   rows?: number;
-  workDir?: string;
+  workDir: string;
 };
 
 export class Terminal {
@@ -34,6 +34,10 @@ export class Terminal {
   ) {
     this.synapse = synapse;
     this.synapse.registerTerminal(this);
+
+    if (!fs.existsSync(terminalOptions.workDir)) {
+      fs.mkdirSync(terminalOptions.workDir, { recursive: true });
+    }
 
     try {
       this.term = pty.spawn(terminalOptions.shell, [], {
