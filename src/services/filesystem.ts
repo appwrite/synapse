@@ -24,15 +24,17 @@ export type FileOperationResult = {
 
 export class Filesystem {
   private synapse: Synapse;
+  private workDir: string;
   private folderWatchers: Map<string, fsSync.FSWatcher> = new Map();
 
   /**
    * Creates a new Filesystem instance
    * @param synapse - The Synapse instance to use
    */
-  constructor(synapse: Synapse) {
+  constructor(synapse: Synapse, workDir?: string) {
     this.synapse = synapse;
     this.synapse.setFilesystem(this);
+    this.workDir = workDir ?? process.cwd();
   }
 
   private log(message: string): void {
@@ -52,7 +54,7 @@ export class Filesystem {
     filePath: string,
     content: string = "",
   ): Promise<FileOperationResult> {
-    const fullPath = path.join(this.synapse.workDir, filePath);
+    const fullPath = path.join(this.workDir, filePath);
 
     try {
       await fs.access(fullPath, fsConstants.F_OK);
@@ -111,7 +113,7 @@ export class Filesystem {
    */
   async getFile(filePath: string): Promise<FileOperationResult> {
     try {
-      const fullPath = path.join(this.synapse.workDir, filePath);
+      const fullPath = path.join(this.workDir, filePath);
 
       const data = await fs.readFile(fullPath, "utf-8");
 
@@ -140,7 +142,7 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log(`Updating file at path: ${filePath}`);
-      const fullPath = path.join(this.synapse.workDir, filePath);
+      const fullPath = path.join(this.workDir, filePath);
       const dirPath = path.dirname(filePath);
 
       await this.createFolder(dirPath);
@@ -170,7 +172,7 @@ export class Filesystem {
     content: string,
   ): Promise<FileOperationResult> {
     try {
-      const fullPath = path.join(this.synapse.workDir, filePath);
+      const fullPath = path.join(this.workDir, filePath);
       await fs.appendFile(fullPath, content);
       return { success: true };
     } catch (error) {
@@ -197,8 +199,8 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log(`Moving file from ${oldPath} to ${newPath}`);
-      const fullOldPath = path.join(this.synapse.workDir, oldPath);
-      const fullNewPath = path.join(this.synapse.workDir, newPath);
+      const fullOldPath = path.join(this.workDir, oldPath);
+      const fullNewPath = path.join(this.workDir, newPath);
 
       await fs.rename(fullOldPath, fullNewPath);
 
@@ -223,7 +225,7 @@ export class Filesystem {
   async deleteFile(filePath: string): Promise<FileOperationResult> {
     try {
       this.log(`Deleting file at path: ${filePath}`);
-      const fullPath = path.join(this.synapse.workDir, filePath);
+      const fullPath = path.join(this.workDir, filePath);
 
       await fs.unlink(fullPath);
 
@@ -251,7 +253,7 @@ export class Filesystem {
       return { success: true };
     }
 
-    const fullPath = path.join(this.synapse.workDir, dirPath);
+    const fullPath = path.join(this.workDir, dirPath);
 
     try {
       await fs.mkdir(fullPath, { recursive: true });
@@ -279,7 +281,7 @@ export class Filesystem {
   async getFolder(dirPath: string): Promise<FileItemResult> {
     try {
       this.log(`Reading directory at path: ${dirPath}`);
-      const fullPath = path.join(this.synapse.workDir, dirPath);
+      const fullPath = path.join(this.workDir, dirPath);
 
       const items = await fs.readdir(fullPath, { withFileTypes: true });
       const data: FileItem[] = items.map((item) => ({
@@ -312,7 +314,7 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log(`Renaming folder at ${dirPath} to ${name}`);
-      const fullPath = path.join(this.synapse.workDir, dirPath);
+      const fullPath = path.join(this.workDir, dirPath);
 
       const dir = path.dirname(fullPath);
       const newPath = path.join(dir, name);
@@ -344,8 +346,8 @@ export class Filesystem {
   ): Promise<FileOperationResult> {
     try {
       this.log(`Moving folder from ${oldPath} to ${newPath}`);
-      const fullOldPath = path.join(this.synapse.workDir, oldPath);
-      const fullNewPath = path.join(this.synapse.workDir, newPath);
+      const fullOldPath = path.join(this.workDir, oldPath);
+      const fullNewPath = path.join(this.workDir, newPath);
 
       await fs.rename(fullOldPath, fullNewPath);
 
@@ -370,7 +372,7 @@ export class Filesystem {
   async deleteFolder(dirPath: string): Promise<FileOperationResult> {
     try {
       this.log(`Deleting folder at path: ${dirPath}`);
-      const fullPath = path.join(this.synapse.workDir, dirPath);
+      const fullPath = path.join(this.workDir, dirPath);
 
       await fs.rm(fullPath, { recursive: true });
 
@@ -393,7 +395,7 @@ export class Filesystem {
   watchWorkDir(
     onChange: (result: { path: string; content: string | null }) => void,
   ): void {
-    const fullPath = path.join(this.synapse.workDir);
+    const fullPath = path.join(this.workDir);
     if (this.folderWatchers.has(fullPath)) {
       return;
     }
@@ -401,7 +403,7 @@ export class Filesystem {
     // Read and parse .gitignore from the root of the workspace
     let ig: ReturnType<typeof ignore> | null = null;
     try {
-      const gitignorePath = path.join(this.synapse.workDir, ".gitignore");
+      const gitignorePath = path.join(this.workDir, ".gitignore");
       const gitignoreContent = fsSync.existsSync(gitignorePath)
         ? fsSync.readFileSync(gitignorePath, "utf-8")
         : "";
@@ -422,7 +424,7 @@ export class Filesystem {
           return; // ignore this change
         }
         const changedPath = path.join("/", filename); // relative to workDir
-        const absPath = path.join(this.synapse.workDir, filename);
+        const absPath = path.join(this.workDir, filename);
 
         try {
           const stat = await fs.lstat(absPath);
@@ -447,7 +449,7 @@ export class Filesystem {
    * Stops watching a directory for changes.
    */
   unwatchWorkDir(): void {
-    const fullPath = path.join(this.synapse.workDir);
+    const fullPath = path.join(this.workDir);
     const watcher = this.folderWatchers.get(fullPath);
     if (watcher) {
       watcher.close();

@@ -11,13 +11,15 @@ export type GitOperationResult = {
 
 export class Git {
   private synapse: Synapse;
+  private workDir: string;
 
   /**
    * Creates a new Git instance
    * @param synapse - The Synapse instance to use
    */
-  constructor(synapse: Synapse) {
+  constructor(synapse: Synapse, workDir?: string) {
     this.synapse = synapse;
+    this.workDir = workDir ?? process.cwd();
   }
 
   private isErrnoException(error: unknown): error is NodeJS.ErrnoException {
@@ -26,7 +28,7 @@ export class Git {
 
   private async execute(args: string[]): Promise<GitOperationResult> {
     return new Promise((resolve) => {
-      const git = spawn("git", args, { cwd: this.synapse.workDir });
+      const git = spawn("git", args, { cwd: this.workDir });
       let output = "";
       let errorOutput = "";
 
@@ -60,7 +62,7 @@ export class Git {
 
   private async isGitRepository(): Promise<boolean> {
     try {
-      const gitDir = path.join(this.synapse.workDir, ".git");
+      const gitDir = path.join(this.workDir, ".git");
       return fs.existsSync(gitDir) && fs.statSync(gitDir).isDirectory();
     } catch (error: unknown) {
       if (this.isErrnoException(error)) {
@@ -86,7 +88,7 @@ export class Git {
 
       // Check if we have write permissions in the current directory
       try {
-        await fs.promises.access(this.synapse.workDir, fs.constants.W_OK);
+        await fs.promises.access(this.workDir, fs.constants.W_OK);
       } catch (error: unknown) {
         if (this.isErrnoException(error)) {
           return {

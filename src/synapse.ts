@@ -1,4 +1,3 @@
-import fs from "fs";
 import { IncomingMessage } from "http";
 import { Socket } from "net";
 import WebSocket, { WebSocketServer } from "ws";
@@ -52,22 +51,11 @@ class Synapse {
   private host: string;
   private port: number;
 
-  public workDir: string;
-
   private serverConnectionListener: ServerConnectionCallback = () => {};
 
-  constructor(
-    host: string = "localhost",
-    port: number = 3000,
-    workDir: string = process.cwd(),
-  ) {
+  constructor(host: string = "localhost", port: number = 3000) {
     this.host = host;
     this.port = port;
-
-    if (!fs.existsSync(workDir)) {
-      fs.mkdirSync(workDir, { recursive: true });
-    }
-    this.workDir = workDir;
 
     this.wss = new WebSocketServer({ noServer: true });
     this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
@@ -200,40 +188,6 @@ class Synapse {
    */
   setFilesystem(filesystem: Filesystem): void {
     this.filesystem = filesystem;
-  }
-
-  /**
-   * Sets the working directory for the Synapse instance
-   * @param workDir - The path to the working directory
-   * @returns void
-   */
-  updateWorkDir(workDir: string): { success: boolean; data: string } {
-    if (!fs.existsSync(workDir)) {
-      try {
-        fs.mkdirSync(workDir, { recursive: true });
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Unknown error creating directory";
-        this.log(`Failed to create work directory: ${errorMessage}`);
-        return {
-          success: false,
-          data: `Failed to create work directory: ${errorMessage}`,
-        };
-      }
-    }
-
-    this.workDir = workDir;
-    this.terminals.forEach((terminal) => {
-      if (terminal.isTerminalAlive()) {
-        terminal.updateWorkDir(workDir);
-      }
-    });
-    return {
-      success: true,
-      data: "Work directory updated successfully",
-    };
   }
 
   /**
