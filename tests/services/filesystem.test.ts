@@ -1,6 +1,7 @@
-import * as fsSync from "fs";
-import * as fs from "fs/promises";
+import * as fs from "fs";
+import * as fsp from "fs/promises";
 import ignore from "ignore";
+import * as path from "path";
 import { Filesystem } from "../../src/services/filesystem";
 import { Synapse } from "../../src/synapse";
 
@@ -19,29 +20,39 @@ jest.mock("ignore");
 describe("Filesystem", () => {
   let filesystem: Filesystem;
   let mockSynapse: jest.Mocked<Synapse>;
+  const tempDir = path.join(process.cwd(), "tmp", "test");
 
   beforeEach(() => {
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
     mockSynapse = jest.mocked({
       logger: jest.fn(),
-      workDir: "/test",
+      workDir: tempDir,
       setFilesystem: jest.fn(),
     } as unknown as Synapse);
 
-    filesystem = new Filesystem(mockSynapse, "/test");
+    filesystem = new Filesystem(mockSynapse, tempDir);
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   describe("createFile", () => {
     it("should successfully create a file", async () => {
-      const filePath = "/file.txt";
+      const filePath = path.join(tempDir, "file.txt");
       const content = "test content";
 
       // Mock access to indicate file does NOT exist initially
       const accessError = new Error("ENOENT") as NodeJS.ErrnoException;
       accessError.code = "ENOENT";
-      (fs.access as jest.Mock).mockRejectedValue(accessError);
-      (fs.mkdir as jest.Mock).mockResolvedValue(undefined); // Assuming createFolder is called
-      (fs.writeFile as jest.Mock).mockResolvedValue(undefined);
+      (fsp.access as jest.Mock).mockRejectedValue(accessError);
+      (fsp.mkdir as jest.Mock).mockResolvedValue(undefined); // Assuming createFolder is called
+      (fsp.writeFile as jest.Mock).mockResolvedValue(undefined);
 
       const result = await filesystem.createFile(filePath, content);
       expect(result).toEqual({
@@ -51,14 +62,14 @@ describe("Filesystem", () => {
     });
 
     it("should return error if file already exists", async () => {
-      const filePath = "/existing.txt";
+      const filePath = path.join(tempDir, "existing.txt");
       const content = "test content";
 
       // Mock access to indicate file DOES exist
-      (fs.access as jest.Mock).mockResolvedValue(undefined);
+      (fsp.access as jest.Mock).mockResolvedValue(undefined);
 
       const result = await filesystem.createFile(filePath, content);
-      expect(fs.writeFile).not.toHaveBeenCalled(); // Should not attempt to write
+      expect(fsp.writeFile).not.toHaveBeenCalled(); // Should not attempt to write
       expect(result).toEqual({
         success: false,
         error: `File already exists at path: ${filePath}`,
@@ -66,15 +77,15 @@ describe("Filesystem", () => {
     });
 
     it("should handle file creation errors during write", async () => {
-      const filePath = "/test/error.txt";
+      const filePath = path.join(tempDir, "error.txt");
       const content = "test content";
 
       // Mock access to indicate file does NOT exist initially
       const accessError = new Error("ENOENT") as NodeJS.ErrnoException;
       accessError.code = "ENOENT";
-      (fs.access as jest.Mock).mockRejectedValue(accessError);
-      (fs.mkdir as jest.Mock).mockResolvedValue(undefined); // Mock directory creation
-      (fs.writeFile as jest.Mock).mockRejectedValue(
+      (fsp.access as jest.Mock).mockRejectedValue(accessError);
+      (fsp.mkdir as jest.Mock).mockResolvedValue(undefined); // Mock directory creation
+      (fsp.writeFile as jest.Mock).mockRejectedValue(
         new Error("Failed to write file"),
       );
 
@@ -88,10 +99,10 @@ describe("Filesystem", () => {
 
   describe("getFile", () => {
     it("should successfully read file content", async () => {
-      const filePath = "/file.txt";
+      const filePath = path.join(tempDir, "file.txt");
       const content = "test content";
 
-      (fs.readFile as jest.Mock).mockResolvedValue(content);
+      (fsp.readFile as jest.Mock).mockResolvedValue(content);
 
       const result = await filesystem.getFile(filePath);
       expect(result).toEqual({
@@ -101,9 +112,11 @@ describe("Filesystem", () => {
     });
 
     it("should handle file reading errors", async () => {
-      const filePath = "/test/nonexistent.txt";
+      const filePath = path.join(tempDir, "nonexistent.txt");
 
-      (fs.readFile as jest.Mock).mockRejectedValue(new Error("File not found"));
+      (fsp.readFile as jest.Mock).mockRejectedValue(
+        new Error("File not found"),
+      );
 
       const result = await filesystem.getFile(filePath);
       expect(result).toEqual({
@@ -120,11 +133,9 @@ describe("Filesystem", () => {
       };
 
       // Mock the filesystem functions
-      (fsSync.watch as jest.Mock).mockReturnValue(mockWatcher);
-      (fsSync.existsSync as jest.Mock).mockReturnValue(true);
-      (fsSync.readFileSync as jest.Mock).mockReturnValue(
-        "*.env\nnode_modules/",
-      );
+      (fs.watch as jest.Mock).mockReturnValue(mockWatcher);
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.readFileSync as jest.Mock).mockReturnValue("*.env\nnode_modules/");
 
       // Mock ignore implementation
       const mockIgnore = {
@@ -137,18 +148,16 @@ describe("Filesystem", () => {
       let watchCallback:
         | ((eventType: string, filename: string) => void)
         | null = null;
-      (fsSync.watch as jest.Mock).mockImplementation(
-        (path, options, callback) => {
-          watchCallback = callback;
-          return mockWatcher;
-        },
-      );
+      (fs.watch as jest.Mock).mockImplementation((path, options, callback) => {
+        watchCallback = callback;
+        return mockWatcher;
+      });
 
       // Mock fs.lstat and fs.readFile for the file change event
-      (fs.lstat as jest.Mock).mockResolvedValue({
+      (fsp.lstat as unknown as jest.Mock).mockResolvedValue({
         isFile: jest.fn().mockReturnValue(true),
       });
-      (fs.readFile as jest.Mock).mockResolvedValue("file content");
+      (fsp.readFile as unknown as jest.Mock).mockResolvedValue("file content");
 
       // Set up the callback spy
       const onChangeMock = jest.fn();
@@ -157,8 +166,8 @@ describe("Filesystem", () => {
       filesystem.watchWorkDir(onChangeMock);
 
       // Verify watch was called with correct path
-      expect(fsSync.watch).toHaveBeenCalledWith(
-        mockSynapse.workDir,
+      expect(fs.watch).toHaveBeenCalledWith(
+        tempDir,
         { recursive: true },
         expect.any(Function),
       );
@@ -196,12 +205,12 @@ describe("Filesystem", () => {
 
   describe("appendFile", () => {
     it("should append content to a file", async () => {
-      const filePath = "/file.txt";
+      const filePath = path.join(tempDir, "file.txt");
       const content = "appended content";
-      (fs.appendFile as jest.Mock).mockResolvedValue(undefined);
+      (fsp.appendFile as unknown as jest.Mock).mockResolvedValue(undefined);
 
       const result = await filesystem.appendFile(filePath, content);
-      expect(fs.appendFile).toHaveBeenCalledWith(
+      expect(fsp.appendFile).toHaveBeenCalledWith(
         expect.stringContaining(filePath),
         content,
       );
