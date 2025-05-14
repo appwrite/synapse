@@ -41,7 +41,8 @@
     "node-fetch": "^3.3.2",
     "ts-jest": "^29.3.2",
     "tsup": "^8.4.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "node-appwrite": "16.0.0"
   },
   "bugs": {
     "url": "https://github.com/appwrite/synapse/issues"
