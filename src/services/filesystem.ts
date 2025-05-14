@@ -23,7 +23,11 @@ export type FileOperationResult = {
 };
 
 export type FileSearchResult = {
-  results: string[];
+  success: boolean;
+  data?: {
+    results: string[];
+  };
+  error?: string;
 };
 
 export class Filesystem {
@@ -506,7 +510,7 @@ export class Filesystem {
    */
   async searchFiles(searchTerm: string): Promise<FileSearchResult> {
     if (!searchTerm || searchTerm.trim() === "") {
-      return { results: [] };
+      return { success: false, error: "Search term is required" };
     }
     const results: string[] = [];
     const workDir = path.resolve(this.workDir);
@@ -564,6 +568,6 @@ export class Filesystem {
     }
 
     await walk(workDir);
-    return { results };
+    return { success: true, data: { results } };
   }
 }
