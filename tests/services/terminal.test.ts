@@ -55,6 +55,24 @@ describe("Terminal", () => {
       terminal.kill();
       expect(terminal.isTerminalAlive()).toBe(false);
     });
+
+    it("should call onExit callback on terminal exit", () => {
+      let callbackCalled = false;
+      let callbackArgs: any[] = [];
+      terminal.onExit((success, exitCode, signal) => {
+        callbackCalled = true;
+        callbackArgs = [success, exitCode, signal];
+      });
+
+      // Simulate the terminal's onExit event
+      // The constructor sets up: this.term.onExit((e) => { ... })
+      // So we need to call the callback passed to mockPty.onExit
+      const onExitMock = (mockPty.onExit as jest.Mock).mock.calls[0][0];
+      onExitMock({ exitCode: 0, signal: 15 });
+
+      expect(callbackCalled).toBe(true);
+      expect(callbackArgs).toEqual([true, 0, 15]);
+    });
   });
 
   describe("terminal operations", () => {
@@ -81,6 +99,7 @@ describe("Terminal", () => {
         shell: "zsh",
         cols: 100,
         rows: 30,
+        workDir: process.cwd(),
       };
 
       const customTerminal = new Terminal(mockSynapse, customOptions);

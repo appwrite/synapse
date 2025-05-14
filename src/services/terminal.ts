@@ -15,6 +15,9 @@ export class Terminal {
   private term: pty.IPty | null = null;
   private onDataCallback: ((success: boolean, data: string) => void) | null =
     null;
+  private onExitCallback:
+    | ((success: boolean, exitCode: number, signal: number) => void)
+    | null = null;
   private isAlive: boolean = false;
   private initializationError: Error | null = null;
 
@@ -60,11 +63,13 @@ export class Terminal {
         this.isAlive = false;
         this.term = null;
 
-        if (this.onDataCallback) {
-          this.onDataCallback(
-            false,
-            `Terminal process exited with code ${e?.exitCode ?? "unknown"}`,
-          );
+        if (
+          this.onExitCallback &&
+          e &&
+          e.exitCode !== undefined &&
+          e.signal !== undefined
+        ) {
+          this.onExitCallback(e.exitCode === 0, e.exitCode, e.signal);
         }
       });
     } catch (error) {
@@ -147,6 +152,22 @@ export class Terminal {
         `Terminal initialization failed: ${this.initializationError.message}`,
       );
     }
+  }
+
+  /**
+   * Sets the callback for when the terminal exits
+   * @param callback - The callback to set
+   */
+  onExit(
+    callback: (success: boolean, exitCode: number, signal: number) => void,
+  ): void {
+    this.onExitCallback = (
+      success: boolean,
+      exitCode: number,
+      signal: number,
+    ) => {
+      callback(success, exitCode, signal);
+    };
   }
 
   /**
