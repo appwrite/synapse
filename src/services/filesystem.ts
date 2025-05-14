@@ -22,6 +22,10 @@ export type FileOperationResult = {
   error?: string;
 };
 
+export type FileSearchResult = {
+  results: string[];
+};
+
 export class Filesystem {
   private synapse: Synapse;
   private workDir: string;
@@ -498,12 +502,27 @@ export class Filesystem {
    * Searches for files in the current workDir based on a search term.
    * Matches both file paths and file contents.
    * @param searchTerm - The term to search for in file paths or contents
-   * @returns Promise<string[]> - List of matching file paths (relative to workDir)
+   * @returns Promise<FileSearchResult> - List of matching file paths (relative to workDir)
    */
-  async searchFiles(searchTerm: string): Promise<string[]> {
+  async searchFiles(searchTerm: string): Promise<FileSearchResult> {
+    if (!searchTerm || searchTerm.trim() === "") {
+      return { results: [] };
+    }
     const results: string[] = [];
-    const workDir = this.workDir;
+    const workDir = path.resolve(this.workDir);
     const searchLower = searchTerm.toLowerCase();
+
+    // Read and parse .gitignore
+    let ig: ReturnType<typeof ignore> | null = null;
+    try {
+      const gitignorePath = this.resolvePath(".gitignore");
+      const gitignoreContent = fsSync.existsSync(gitignorePath)
+        ? fsSync.readFileSync(gitignorePath, "utf-8")
+        : "";
+      ig = ignore().add(gitignoreContent);
+    } catch {
+      ig = null;
+    }
 
     async function walk(dir: string) {
       let entries: fsSync.Dirent[];
@@ -514,20 +533,28 @@ export class Filesystem {
       }
       for (const entry of entries) {
         const absPath = path.join(dir, entry.name);
-        const relPath = path.relative(workDir, absPath);
+        const relPath = path.relative(workDir, absPath).replace(/\\/g, "/");
+        // Ignore files/directories in .gitignore
+        if (ig && ig.ignores(relPath)) {
+          continue;
+        }
         if (entry.isDirectory()) {
           await walk(absPath);
         } else if (entry.isFile()) {
           // Check if file path matches
           if (relPath.toLowerCase().includes(searchLower)) {
-            results.push(relPath);
+            if (relPath && relPath !== "" && relPath !== ".") {
+              results.push(relPath);
+            }
             continue;
           }
           // Check if file content matches
           try {
             const content = await fs.readFile(absPath, "utf-8");
             if (content.toLowerCase().includes(searchLower)) {
-              results.push(relPath);
+              if (relPath && relPath !== "" && relPath !== ".") {
+                results.push(relPath);
+              }
             }
           } catch {
             // Ignore unreadable files
@@ -537,6 +564,6 @@ export class Filesystem {
     }
 
     await walk(workDir);
-    return results;
+    return { results };
   }
 }

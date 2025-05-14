@@ -243,13 +243,13 @@ describe("Filesystem", () => {
       });
       // Search by file name
       let results = await filesystem.searchFiles("foo");
-      expect(results).toContain("foo.txt");
+      expect(results.results).toContain("foo.txt");
       // Search by content
       results = await filesystem.searchFiles("search me");
-      expect(results).toContain("bar.md");
+      expect(results.results).toContain("bar.md");
       // Search for non-matching term
       results = await filesystem.searchFiles("notfound");
-      expect(results).toEqual([]);
+      expect(results.results).toEqual([]);
     });
   });
 });
