@@ -217,4 +217,39 @@ describe("Filesystem", () => {
       expect(result).toEqual({ success: true });
     });
   });
+
+  describe("searchFiles", () => {
+    it("should find files by path and content", async () => {
+      // Setup mock directory structure
+      const files = [
+        { name: "foo.txt", content: "hello world" },
+        { name: "bar.md", content: "search me" },
+        { name: "baz.txt", content: "nothing here" },
+      ];
+      // Mock fs.readdir and fs.readFile
+      (fsp.readdir as jest.Mock).mockImplementation(async (dir) => {
+        if (dir === tempDir) {
+          return files.map((f) => ({
+            name: f.name,
+            isDirectory: () => false,
+            isFile: () => true,
+          }));
+        }
+        return [];
+      });
+      (fsp.readFile as jest.Mock).mockImplementation(async (filePath) => {
+        const file = files.find((f) => filePath.endsWith(f.name));
+        return file ? file.content : "";
+      });
+      // Search by file name
+      let results = await filesystem.searchFiles("foo");
+      expect(results.data?.results).toContain("foo.txt");
+      // Search by content
+      results = await filesystem.searchFiles("search me");
+      expect(results.data?.results).toContain("bar.md");
+      // Search for non-matching term
+      results = await filesystem.searchFiles("notfound");
+      expect(results.data?.results).toEqual([]);
+    });
+  });
 });
