@@ -493,4 +493,50 @@ export class Filesystem {
     }
     this.folderWatchers.clear();
   }
+
+  /**
+   * Searches for files in the current workDir based on a search term.
+   * Matches both file paths and file contents.
+   * @param searchTerm - The term to search for in file paths or contents
+   * @returns Promise<string[]> - List of matching file paths (relative to workDir)
+   */
+  async searchFiles(searchTerm: string): Promise<string[]> {
+    const results: string[] = [];
+    const workDir = this.workDir;
+    const searchLower = searchTerm.toLowerCase();
+
+    async function walk(dir: string) {
+      let entries: fsSync.Dirent[];
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const entry of entries) {
+        const absPath = path.join(dir, entry.name);
+        const relPath = path.relative(workDir, absPath);
+        if (entry.isDirectory()) {
+          await walk(absPath);
+        } else if (entry.isFile()) {
+          // Check if file path matches
+          if (relPath.toLowerCase().includes(searchLower)) {
+            results.push(relPath);
+            continue;
+          }
+          // Check if file content matches
+          try {
+            const content = await fs.readFile(absPath, "utf-8");
+            if (content.toLowerCase().includes(searchLower)) {
+              results.push(relPath);
+            }
+          } catch {
+            // Ignore unreadable files
+          }
+        }
+      }
+    }
+
+    await walk(workDir);
+    return results;
+  }
 }
