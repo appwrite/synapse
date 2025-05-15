@@ -189,10 +189,7 @@ describe("Filesystem", () => {
       filesystem.watchWorkDir(onChange);
 
       // Simulate file change event
-      const addCallback = mockWatcher.on.mock.calls.find(
-        (call) => call[0] === "add",
-      )[1];
-      addCallback(testFilePath);
+      mockWatcher.on.mock.calls[0][1]("add", testFilePath);
 
       // Wait for the watcher to detect changes
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -200,6 +197,7 @@ describe("Filesystem", () => {
       // Verify onChange was called with correct data
       expect(onChange).toHaveBeenCalledWith({
         path: "/watch-test.txt",
+        event: "add",
         content: "test content",
       });
 

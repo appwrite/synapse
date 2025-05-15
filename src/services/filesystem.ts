@@ -417,7 +417,11 @@ export class Filesystem {
    * @param onChange - Callback to call with the path and new content of the changed file
    */
   watchWorkDir(
-    onChange: (result: { path: string; content: string | null }) => void,
+    onChange: (result: {
+      path: string;
+      event: string;
+      content: string | null;
+    }) => void,
   ): void {
     const fullPath = this.resolvePath(this.workDir);
     if (this.folderWatchers.has(fullPath)) {
@@ -452,36 +456,23 @@ export class Filesystem {
       },
     });
 
-    const handleChange = async (eventType: string, filePath: string) => {
-      const relativePath = path.relative(fullPath, filePath);
-      const changedPath = path.join("/", relativePath);
-
-      try {
-        const stat = await fs.lstat(filePath);
-        if (stat.isFile()) {
-          const content = await fs.readFile(filePath, "utf-8");
-          onChange({ path: changedPath, content });
-        } else {
-          onChange({ path: changedPath, content: null });
-        }
-      } catch {
-        onChange({ path: changedPath, content: null });
-      }
-    };
-
     // Bind events
     watcher
-      .on("add", (filePath: string) => handleChange("add", filePath))
-      .on("change", (filePath: string) => handleChange("change", filePath))
-      .on("unlink", (filePath: string) => {
+      .on("all", async (event, filePath) => {
         const relativePath = path.relative(fullPath, filePath);
         const changedPath = path.join("/", relativePath);
-        onChange({ path: changedPath, content: null });
-      })
-      .on("unlinkDir", (dirPath: string) => {
-        const relativePath = path.relative(fullPath, dirPath);
-        const changedPath = path.join("/", relativePath);
-        onChange({ path: changedPath, content: null });
+
+        try {
+          const stat = await fs.lstat(filePath);
+          if (stat.isFile()) {
+            const content = await fs.readFile(filePath, "utf-8");
+            onChange({ path: changedPath, event, content });
+          } else {
+            onChange({ path: changedPath, event, content: null });
+          }
+        } catch {
+          onChange({ path: changedPath, event, content: null });
+        }
       })
       .on("error", (error: unknown) => {
         console.error(`Watcher error: ${error}`);
