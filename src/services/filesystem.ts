@@ -445,9 +445,9 @@ export class Filesystem {
       ignored: (filePath: string) => {
         if (ig) {
           const relativePath = path
-            .relative(fullPath, filePath)
+            .relative(path.resolve(fullPath), path.resolve(filePath))
             .replace(/\\/g, "/");
-          if (relativePath === "") {
+          if (relativePath === "" || relativePath === ".") {
             return false;
           }
           if (ig.ignores(relativePath)) {
@@ -465,14 +465,14 @@ export class Filesystem {
         const relativePath = path.relative(fullPath, filePath);
         const changedPath = path.join("/", relativePath);
 
-        this.log(`Event: ${event}, filePath: ${filePath}`);
-
         try {
           const stat = await fs.lstat(filePath);
           if (stat.isFile()) {
             const content = await fs.readFile(filePath, "utf-8");
+            this.log(`Event: ${event}, filePath: ${changedPath}`);
             onChange({ path: changedPath, event, content });
           } else {
+            this.log(`Event: ${event}, filePath: ${changedPath}`);
             onChange({ path: changedPath, event, content: null });
           }
         } catch {
