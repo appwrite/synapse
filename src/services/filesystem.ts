@@ -444,11 +444,9 @@ export class Filesystem {
     const watcher = chokidar.watch(fullPath, {
       ignored: (filePath: string) => {
         if (ig) {
-          const relativePath = path
-            .relative(fullPath, filePath)
-            .replace(/\\/g, "/");
+          const relativePath = filePath.replace(/\\/g, "/");
           if (relativePath === "") {
-            return true;
+            return false;
           }
           if (ig.ignores(relativePath)) {
             this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
