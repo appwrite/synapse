@@ -450,6 +450,9 @@ export class Filesystem {
           if (relativePath === "" || relativePath === ".") {
             return false;
           }
+          if (relativePath.startsWith("..")) {
+            return true;
+          }
           if (ig.ignores(relativePath)) {
             this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
             return true;
