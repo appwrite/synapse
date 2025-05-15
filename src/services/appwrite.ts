@@ -10,17 +10,59 @@ export class Appwrite {
     storage: Storage
   };
 
-  constructor(
-    endpoint: string,
-    projectId: string,
-    apiKey: string
-  ) {
-    // Initialize client
+  constructor() {
+    // Initialize client without any parameters
     this.client = new Client();
-    this.client
-      .setEndpoint(endpoint)
-      .setProject(projectId)
-      .setKey(apiKey);
+  }
+
+  /**
+   * Set the API endpoint
+   * @param endpoint API endpoint
+   * @returns this instance for method chaining
+   */
+  setEndpoint(endpoint: string): Appwrite {
+    this.client.setEndpoint(endpoint);
+    return this;
+  }
+
+  /**
+   * Set the project ID
+   * @param projectId Appwrite project ID
+   * @returns this instance for method chaining
+   */
+  setProject(projectId: string): Appwrite {
+    this.client.setProject(projectId);
+    return this;
+  }
+
+  /**
+   * Set the API key
+   * @param apiKey Appwrite API key
+   * @returns this instance for method chaining
+   */
+  setKey(apiKey: string): Appwrite {
+    this.client.setKey(apiKey);
+    return this;
+  }
+
+  /**
+   * Set the JWT
+   * @param jwt JWT token
+   * @returns this instance for method chaining
+   */
+  setJWT(jwt: string): Appwrite {
+    this.client.setJWT(jwt);
+    return this;
+  }
+
+  /**
+   * Set a session cookie
+   * @param cookie Session cookie
+   * @returns this instance for method chaining
+   */
+  setSession(cookie: string): Appwrite {
+    this.client.setSession(cookie);
+    return this;
   }
 
   /**
@@ -42,7 +84,7 @@ export class Appwrite {
     return !!(
       config?.endpoint && 
       config?.project && 
-      config?.key
+      (config?.key || config?.jwt || config?.session)
     );
   }
 
@@ -55,6 +97,11 @@ export class Appwrite {
    * @throws Error if service or method does not exist
    */
   async call(serviceName: string, methodName: string, ...args: any[]): Promise<any> {
+    // Check if SDK is initialized before making any calls
+    if (!this.isInitialized()) {
+      throw new Error('Appwrite SDK is not properly initialized. Please ensure endpoint, project ID, and authentication (API key, JWT, or session) are set.');
+    }
+    
     // Convert service name to lowercase for case-insensitive matching
     const normalizedServiceName = serviceName.toLowerCase();
     
