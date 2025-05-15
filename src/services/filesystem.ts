@@ -444,7 +444,9 @@ export class Filesystem {
     const watcher = chokidar.watch(fullPath, {
       ignored: (filePath: string) => {
         if (ig) {
-          const relativePath = filePath.replace(/\\/g, "/");
+          const relativePath = path
+            .relative(fullPath, filePath)
+            .replace(/\\/g, "/");
           if (relativePath === "") {
             return false;
           }
@@ -462,6 +464,8 @@ export class Filesystem {
       .on("all", async (event, filePath) => {
         const relativePath = path.relative(fullPath, filePath);
         const changedPath = path.join("/", relativePath);
+
+        this.log(`Event: ${event}, filePath: ${filePath}`);
 
         try {
           const stat = await fs.lstat(filePath);
