@@ -33,6 +33,22 @@ export class Appwrite {
   }
 
   /**
+   * Check if the SDK has been properly initialized
+   * @returns boolean indicating if endpoint, project ID, and API key are all set
+   */
+  isInitialized(): boolean {
+    // Access the private config from the client to check initialization status
+    const config = (this.client as any).config;
+    
+    // Check if all required configuration values are set
+    return !!(
+      config?.endpoint && 
+      config?.project && 
+      config?.key
+    );
+  }
+
+  /**
    * Call a method on an Appwrite service
    * @param serviceName The name of the service (e.g., 'users', 'databases')
    * @param methodName The name of the method to call on the service
