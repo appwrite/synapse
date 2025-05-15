@@ -438,8 +438,6 @@ export class Filesystem {
 
     // Initialize chokidar watcher
     const watcher = chokidar.watch(fullPath, {
-      persistent: true,
-      ignoreInitial: true,
       ignored: (filePath: string) => {
         if (ig) {
           const relativePath = path
@@ -451,10 +449,6 @@ export class Filesystem {
           return ig.ignores(relativePath);
         }
         return false;
-      },
-      awaitWriteFinish: {
-        stabilityThreshold: 300,
-        pollInterval: 100,
       },
     });
 
