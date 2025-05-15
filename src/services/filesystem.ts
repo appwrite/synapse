@@ -450,7 +450,10 @@ export class Filesystem {
           if (relativePath === "") {
             return true;
           }
-          return ig.ignores(relativePath);
+          if (ig.ignores(relativePath)) {
+            this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
+            return true;
+          }
         }
         return false;
       },
