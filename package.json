@@ -26,7 +26,8 @@
     "ignore": "^7.0.4",
     "node-pty": "^1.0.0",
     "prettier": "^3.5.3",
-    "ws": "^8.18.1"
+    "ws": "^8.18.1",
+    "node-appwrite": "16.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
@@ -41,8 +42,7 @@
     "node-fetch": "^3.3.2",
     "ts-jest": "^29.3.2",
     "tsup": "^8.4.0",
-    "typescript": "^5.8.3",
-    "node-appwrite": "16.0.0"
+    "typescript": "^5.8.3"
   },
   "bugs": {
     "url": "https://github.com/appwrite/synapse/issues"

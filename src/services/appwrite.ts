@@ -4,12 +4,10 @@ export class Appwrite {
   private client: Client;
   private serviceInstances: Record<string, any> = {};
   private availableServices: Record<string, any> = {
-    account: Account,
-    databases: Databases,
-    functions: Functions,
-    storage: Storage,
     teams: Teams,
     users: Users,
+    databases: Databases,
+    storage: Storage
   };
 
   constructor(
