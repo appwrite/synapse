@@ -442,7 +442,12 @@ export class Filesystem {
       ignoreInitial: true,
       ignored: (filePath: string) => {
         if (ig) {
-          const relativePath = path.relative(fullPath, filePath).replace(/\\/g, "/");
+          const relativePath = path
+            .relative(fullPath, filePath)
+            .replace(/\\/g, "/");
+          if (relativePath === "") {
+            return true;
+          }
           return ig.ignores(relativePath);
         }
         return false;
