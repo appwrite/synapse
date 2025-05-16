@@ -27,7 +27,8 @@
     "ignore": "^7.0.4",
     "node-pty": "^1.0.0",
     "prettier": "^3.5.3",
-    "ws": "^8.18.1"
+    "ws": "^8.18.1",
+    "node-appwrite": "16.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
