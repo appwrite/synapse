@@ -1,3 +1,4 @@
+import chokidar, { FSWatcher } from "chokidar";
 import * as fsSync from "fs";
 import { constants as fsConstants } from "fs";
 import * as fs from "fs/promises";
@@ -33,7 +34,7 @@ export type FileSearchResult = {
 export class Filesystem {
   private synapse: Synapse;
   private workDir: string;
-  private folderWatchers: Map<string, fsSync.FSWatcher> = new Map();
+  private folderWatchers: Map<string, FSWatcher> = new Map();
 
   /**
    * Creates a new Filesystem instance
@@ -416,7 +417,11 @@ export class Filesystem {
    * @param onChange - Callback to call with the path and new content of the changed file
    */
   watchWorkDir(
-    onChange: (result: { path: string; content: string | null }) => void,
+    onChange: (result: {
+      path: string;
+      event: string;
+      content: string | null;
+    }) => void,
   ): void {
     const fullPath = this.resolvePath(this.workDir);
     if (this.folderWatchers.has(fullPath)) {
@@ -435,35 +440,51 @@ export class Filesystem {
       ig = null;
     }
 
-    const watcher = fsSync.watch(
-      fullPath,
-      { recursive: true },
-      async (eventType, filename) => {
-        if (!filename) return;
-        // filename is relative to workDir
-        // ignore always expects forward slashes
-        const relPath = filename.replace(/\\/g, "/");
-        if (ig && ig.ignores(relPath)) {
-          return; // ignore this change
+    // Initialize chokidar watcher
+    const watcher = chokidar.watch(fullPath, {
+      ignored: (filePath: string) => {
+        if (ig) {
+          const relativePath = path
+            .relative(path.resolve(fullPath), path.resolve(filePath))
+            .replace(/\\/g, "/");
+          if (relativePath === "" || relativePath === ".") {
+            return false;
+          }
+          if (relativePath.startsWith("..")) {
+            return true;
+          }
+          if (ig.ignores(relativePath)) {
+            this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
+            return true;
+          }
         }
-        const changedPath = path.join("/", filename); // relative to workDir
-        const absPath = path.join(this.workDir, filename);
+        return false;
+      },
+    });
+
+    // Bind events
+    watcher
+      .on("all", async (event, filePath) => {
+        const relativePath = path.relative(fullPath, filePath);
+        const changedPath = path.join("/", relativePath);
 
         try {
-          const stat = await fs.lstat(absPath);
+          const stat = await fs.lstat(filePath);
           if (stat.isFile()) {
-            const content = await fs.readFile(absPath, "utf-8");
-            onChange({ path: changedPath, content });
+            const content = await fs.readFile(filePath, "utf-8");
+            this.log(`Event: ${event}, filePath: ${changedPath}`);
+            onChange({ path: changedPath, event, content });
           } else {
-            // It's a directory, not a file
-            onChange({ path: changedPath, content: null });
+            this.log(`Event: ${event}, filePath: ${changedPath}`);
+            onChange({ path: changedPath, event, content: null });
           }
         } catch {
-          // File might have been deleted or is inaccessible
-          onChange({ path: changedPath, content: null });
+          onChange({ path: changedPath, event, content: null });
         }
-      },
-    );
+      })
+      .on("error", (error: unknown) => {
+        console.error(`Watcher error: ${error}`);
+      });
 
     this.folderWatchers.set(fullPath, watcher);
   }
