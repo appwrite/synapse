@@ -509,7 +509,7 @@ export class Filesystem {
     watcher
       .on("all", async (event, filePath) => {
         const relativePath = path.relative(fullPath, filePath);
-        const changedPath = path.join("/", relativePath);
+        const changedPath = relativePath;
 
         try {
           const stat = await fs.lstat(filePath);

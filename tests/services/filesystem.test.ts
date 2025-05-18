@@ -213,7 +213,7 @@ describe("Filesystem", () => {
 
       // Verify onChange was called with correct data
       expect(onChange).toHaveBeenCalledWith({
-        path: "/watch-test.txt",
+        path: "watch-test.txt",
         event: "add",
         content: "test content",
       });
