@@ -32,15 +32,9 @@ describe("Git Service", () => {
     (fs.existsSync as jest.Mock).mockReturnValue(false);
     (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
 
-    mockSynapse = {
-      workDir: mockWorkingDir,
-      updateWorkDir: jest.fn((dir: string) => {
-        mockSynapse.workDir = dir;
-        return { success: true, data: "Work directory updated successfully" };
-      }),
-    } as unknown as jest.Mocked<Synapse>;
     mockSpawn = spawn as jest.Mock;
-    git = new Git(mockSynapse);
+    mockSynapse = new Synapse() as jest.Mocked<Synapse>;
+    git = new Git(mockSynapse, mockWorkingDir);
   });
 
   const setupMockProcess = (
@@ -106,14 +100,13 @@ describe("Git Service", () => {
       // First ensure no git repo exists
       (fs.existsSync as jest.Mock).mockImplementation(function (
         this: unknown,
-        ...args: unknown[]
       ): boolean {
         return false;
       });
       setupMockProcess("Initialized empty Git repository");
 
       // Change workDir
-      mockSynapse.updateWorkDir("/workspace/another-project");
+      git.updateWorkDir("/workspace/another-project");
 
       // Now init should succeed
       const secondInit = await git.init();
@@ -121,9 +114,6 @@ describe("Git Service", () => {
         success: true,
         data: "Initialized empty Git repository",
       });
-
-      // Verify workDir was changed
-      expect(mockSynapse.workDir).toBe("/workspace/another-project");
     });
   });
 
