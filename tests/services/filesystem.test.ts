@@ -1,3 +1,4 @@
+import * as archiver from "archiver";
 import * as chokidar from "chokidar";
 import * as fs from "fs";
 import * as fsp from "fs/promises";
@@ -9,6 +10,7 @@ jest.mock("fs/promises");
 jest.mock("fs");
 jest.mock("ignore");
 jest.mock("chokidar");
+jest.mock("archiver");
 
 describe("Filesystem", () => {
   let filesystem: Filesystem;
@@ -100,7 +102,10 @@ describe("Filesystem", () => {
       const result = await filesystem.getFile(filePath);
       expect(result).toEqual({
         success: true,
-        data: content,
+        data: {
+          content,
+          mimeType: "text/plain",
+        },
       });
     });
 
@@ -159,10 +164,22 @@ describe("Filesystem", () => {
       });
       // Search by file name
       let results = await filesystem.searchFiles("foo");
-      expect(results.data?.results).toContain("foo.txt");
+      expect(results.data?.results).toContainEqual({
+        path: "foo.txt",
+        matches: [],
+      });
       // Search by content
       results = await filesystem.searchFiles("search me");
-      expect(results.data?.results).toContain("bar.md");
+      expect(results.data?.results).toContainEqual({
+        path: "bar.md",
+        matches: [
+          {
+            row: 1,
+            column: 1,
+            line: "search me",
+          },
+        ],
+      });
       // Search for non-matching term
       results = await filesystem.searchFiles("notfound");
       expect(results.data?.results).toEqual([]);
@@ -196,7 +213,7 @@ describe("Filesystem", () => {
 
       // Verify onChange was called with correct data
       expect(onChange).toHaveBeenCalledWith({
-        path: "/watch-test.txt",
+        path: "watch-test.txt",
         event: "add",
         content: "test content",
       });
@@ -204,6 +221,71 @@ describe("Filesystem", () => {
       // Clean up
       filesystem.unwatchWorkDir();
       expect(mockWatcher.close).toHaveBeenCalled();
+    });
+  });
+
+  describe("createZipFile", () => {
+    it("should create a zip file containing all files", async () => {
+      // Mock directory structure
+      const mockFiles = [
+        { name: "file1.txt", isDirectory: () => false, isFile: () => true },
+        { name: "file2.txt", isDirectory: () => false, isFile: () => true },
+        { name: "subdir", isDirectory: () => true, isFile: () => false },
+      ];
+
+      // Mock fs.readdir to return our mock files
+      (fsp.readdir as jest.Mock).mockImplementation(async (dir) => {
+        if (dir === tempDir) {
+          return mockFiles;
+        }
+        if (dir === path.join(tempDir, "subdir")) {
+          return [
+            {
+              name: "subfile.txt",
+              isDirectory: () => false,
+              isFile: () => true,
+            },
+          ];
+        }
+        return [];
+      });
+
+      // Mock archiver events
+      const mockArchive = {
+        on: jest.fn().mockImplementation((event, callback) => {
+          if (event === "data") {
+            callback(Buffer.from("test data"));
+          }
+          if (event === "end") {
+            callback();
+          }
+          return mockArchive;
+        }),
+        file: jest.fn(),
+        finalize: jest.fn(),
+      };
+
+      // Mock archiver constructor
+      (archiver as unknown as jest.Mock).mockReturnValue(mockArchive);
+
+      const result = await filesystem.createZipFile();
+
+      expect(result.success).toBe(true);
+      expect(result.data?.buffer).toBeInstanceOf(Buffer);
+      expect(mockArchive.file).toHaveBeenCalledTimes(3); // 2 files in root + 1 in subdir
+      expect(mockArchive.finalize).toHaveBeenCalled();
+    });
+
+    it("should handle errors during zip creation", async () => {
+      // Mock fs.readdir to throw an error
+      (fsp.readdir as jest.Mock).mockRejectedValue(
+        new Error("Failed to read directory"),
+      );
+
+      const result = await filesystem.createZipFile();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Failed to read directory");
     });
   });
 });
