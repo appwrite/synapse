@@ -106,7 +106,7 @@ describe("Git Service", () => {
       setupMockProcess("Initialized empty Git repository");
 
       // Change workDir
-      git.updateWorkDir("/workspace/another-project");
+      git.updateWorkDir("/tmp/synapse/git-test/another-project");
 
       // Now init should succeed
       const secondInit = await git.init();
