@@ -4,6 +4,7 @@ import * as fsSync from "fs";
 import { constants as fsConstants } from "fs";
 import * as fs from "fs/promises";
 import ignore from "ignore";
+import mime from "mime-types";
 import * as path from "path";
 import { Synapse } from "../synapse";
 
@@ -20,15 +21,21 @@ export type FileItemResult = {
   error?: string;
 };
 
+export type FileContent = {
+  success: boolean;
+  data?: {
+    content: string;
+    mimeType: string;
+  };
+  error?: string;
+};
+
 export type FileOperationResult = {
   success: boolean;
   data?: string;
   error?: string;
 };
 
-/**
- * Result of file search operation
- */
 export type FileSearchResult = {
   success: boolean;
   error?: string;
@@ -37,9 +44,6 @@ export type FileSearchResult = {
   };
 };
 
-/**
- * Represents a match location in a file
- */
 export type FileSearchMatch = {
   path: string;
   matches: Array<{
@@ -161,13 +165,20 @@ export class Filesystem {
    * @returns Promise<FileOperationResult> containing the file content in the data property
    * @throws Error if file reading fails
    */
-  async getFile(filePath: string): Promise<FileOperationResult> {
+  async getFile(filePath: string): Promise<FileContent> {
     try {
       const fullPath = this.resolvePath(filePath);
 
-      const data = await fs.readFile(fullPath, "utf-8");
+      const content = await fs.readFile(fullPath, "utf-8");
+      const mimeType = mime.lookup(fullPath);
 
-      return { success: true, data };
+      return {
+        success: true,
+        data: {
+          content,
+          mimeType: mimeType || "text/plain",
+        },
+      };
     } catch (error) {
       this.log(
         `Error: ${error instanceof Error ? error.message : String(error)}`,

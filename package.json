@@ -26,6 +26,7 @@
     "chokidar": "^4.0.3",
     "eslint": "^9.27.0",
     "ignore": "^7.0.4",
+    "mime-types": "^3.0.1",
     "node-pty": "^1.0.0",
     "prettier": "^3.5.3",
     "ws": "^8.18.2"
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@types/archiver": "^6.0.3",
     "@types/jest": "^29.5.14",
+    "@types/mime-types": "^2.1.4",
     "@types/node": "^22.15.18",
     "@types/node-fetch": "^2.6.12",
     "@types/ws": "^8.18.1",

@@ -102,7 +102,10 @@ describe("Filesystem", () => {
       const result = await filesystem.getFile(filePath);
       expect(result).toEqual({
         success: true,
-        data: content,
+        data: {
+          content,
+          mimeType: "text/plain",
+        },
       });
     });
 
