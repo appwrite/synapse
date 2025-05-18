@@ -24,7 +24,7 @@ describe("Git Service", () => {
   let git: Git;
   let mockSpawn: jest.Mock;
   let mockSynapse: jest.Mocked<Synapse>;
-  const mockWorkingDir = "/workspace/synapse";
+  const mockWorkingDir = "/tmp/synapse/git-test";
 
   beforeEach(() => {
     jest.clearAllMocks();
