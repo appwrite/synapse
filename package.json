@@ -22,6 +22,8 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@types/archiver": "^6.0.3",
+    "archiver": "^7.0.1",
     "chokidar": "^4.0.3",
     "eslint": "^9.24.0",
     "ignore": "^7.0.4",

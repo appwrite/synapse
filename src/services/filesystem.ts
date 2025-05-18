@@ -1,3 +1,4 @@
+import archiver from "archiver";
 import chokidar, { FSWatcher } from "chokidar";
 import * as fsSync from "fs";
 import { constants as fsConstants } from "fs";
@@ -46,6 +47,14 @@ export type FileSearchMatch = {
     column: number;
     line: string;
   }>;
+};
+
+export type ZipResult = {
+  success: boolean;
+  error?: string;
+  data?: {
+    buffer: Buffer;
+  };
 };
 
 export class Filesystem {
@@ -642,5 +651,61 @@ export class Filesystem {
 
     await walk(workDir);
     return { success: true, data: { results } };
+  }
+
+  /**
+   * Creates a zip file containing all files in the workDir and returns it as a Buffer
+   * @returns Promise<ZipResult> containing the zip file as a Buffer
+   */
+  async createZipFile(): Promise<ZipResult> {
+    try {
+      const archive = archiver("zip", {
+        zlib: { level: 9 }, // Maximum compression
+      });
+
+      // Use a more direct approach with streams
+      const bufferChunks: Buffer[] = [];
+
+      // Set up promise to track completion
+      const archivePromise = new Promise<Buffer>((resolve, reject) => {
+        archive.on("data", (chunk: Buffer) => bufferChunks.push(chunk));
+        archive.on("end", () => resolve(Buffer.concat(bufferChunks)));
+        archive.on("error", (err: Error) => reject(err));
+      });
+
+      // Recursively add files to archive
+      const addDirectory = async (dir: string) => {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          const relativePath = path
+            .relative(this.workDir, fullPath)
+            .replace(/\\/g, "/");
+
+          if (entry.isDirectory()) {
+            await addDirectory(fullPath);
+          } else {
+            archive.file(fullPath, { name: relativePath });
+          }
+        }
+      };
+
+      // Process files and finalize archive
+      await addDirectory(this.workDir);
+      archive.finalize();
+
+      // Wait for archive to complete and return result
+      const buffer = await archivePromise;
+      return {
+        success: true,
+        data: { buffer },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 }
