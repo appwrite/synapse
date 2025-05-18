@@ -6,6 +6,8 @@ import ignore from "ignore";
 import * as path from "path";
 import { Synapse } from "../synapse";
 
+const IGNORE_PATTERNS = ["node_modules", "dist", "build", "coverage", "logs"];
+
 export type FileItem = {
   name: string;
   isDirectory: boolean;
@@ -472,7 +474,9 @@ export class Filesystem {
             this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
             return true;
           }
-          if (relativePath.includes("node_modules")) {
+          if (
+            IGNORE_PATTERNS.some((pattern) => relativePath.includes(pattern))
+          ) {
             this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
             return true;
           }
