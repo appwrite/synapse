@@ -159,10 +159,22 @@ describe("Filesystem", () => {
       });
       // Search by file name
       let results = await filesystem.searchFiles("foo");
-      expect(results.data?.results).toContain("foo.txt");
+      expect(results.data?.results).toContainEqual({
+        path: "foo.txt",
+        matches: [],
+      });
       // Search by content
       results = await filesystem.searchFiles("search me");
-      expect(results.data?.results).toContain("bar.md");
+      expect(results.data?.results).toContainEqual({
+        path: "bar.md",
+        matches: [
+          {
+            row: 1,
+            column: 1,
+            line: "search me",
+          },
+        ],
+      });
       // Search for non-matching term
       results = await filesystem.searchFiles("notfound");
       expect(results.data?.results).toEqual([]);

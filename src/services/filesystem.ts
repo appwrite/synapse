@@ -23,12 +23,27 @@ export type FileOperationResult = {
   error?: string;
 };
 
+/**
+ * Result of file search operation
+ */
 export type FileSearchResult = {
   success: boolean;
-  data?: {
-    results: string[];
-  };
   error?: string;
+  data?: {
+    results: FileSearchMatch[];
+  };
+};
+
+/**
+ * Represents a match location in a file
+ */
+export type FileSearchMatch = {
+  path: string;
+  matches: Array<{
+    row: number;
+    column: number;
+    line: string;
+  }>;
 };
 
 export class Filesystem {
@@ -457,6 +472,10 @@ export class Filesystem {
             this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
             return true;
           }
+          if (relativePath.includes("node_modules")) {
+            this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
+            return true;
+          }
         }
         return false;
       },
@@ -526,16 +545,16 @@ export class Filesystem {
   /**
    * Searches for files in the current workDir based on a search term.
    * Matches both file paths and file contents.
-   * @param searchTerm - The term to search for in file paths or contents
-   * @returns Promise<FileSearchResult> - List of matching file paths (relative to workDir)
+   * @param term - The term to search for in file paths or contents
+   * @returns Promise<FileSearchResult> - List of matching file paths with row and column information
    */
-  async searchFiles(searchTerm: string): Promise<FileSearchResult> {
-    if (!searchTerm || searchTerm.trim() === "") {
+  async searchFiles(term: string): Promise<FileSearchResult> {
+    if (!term || term.trim() === "") {
       return { success: false, error: "Search term is required" };
     }
-    const results: string[] = [];
+    const results: FileSearchMatch[] = [];
     const workDir = path.resolve(this.workDir);
-    const searchLower = searchTerm.toLowerCase();
+    const searchLower = term.toLowerCase();
 
     // Read and parse .gitignore
     let ig: ReturnType<typeof ignore> | null = null;
@@ -566,20 +585,49 @@ export class Filesystem {
         if (entry.isDirectory()) {
           await walk(absPath);
         } else if (entry.isFile()) {
+          let fileMatch: FileSearchMatch | null = null;
+
           // Check if file path matches
           if (relPath.toLowerCase().includes(searchLower)) {
             if (relPath && relPath !== "" && relPath !== ".") {
-              results.push(relPath);
+              fileMatch = { path: relPath, matches: [] };
+              results.push(fileMatch);
             }
             continue;
           }
+
           // Check if file content matches
           try {
             const content = await fs.readFile(absPath, "utf-8");
-            if (content.toLowerCase().includes(searchLower)) {
-              if (relPath && relPath !== "" && relPath !== ".") {
-                results.push(relPath);
+            const lines = content.split("\n");
+            let hasMatch = false;
+
+            for (let rowIndex = 0; rowIndex < lines.length; rowIndex++) {
+              const line = lines[rowIndex];
+              const lineLower = line.toLowerCase();
+              let columnIndex = lineLower.indexOf(searchLower);
+
+              if (columnIndex !== -1) {
+                if (!hasMatch) {
+                  fileMatch = { path: relPath, matches: [] };
+                  hasMatch = true;
+                }
+
+                // Find all occurrences in the current line
+                while (columnIndex !== -1) {
+                  fileMatch!.matches.push({
+                    row: rowIndex + 1,
+                    column: columnIndex + 1,
+                    line: line.trim(),
+                  });
+
+                  columnIndex = lineLower.indexOf(searchLower, columnIndex + 1);
+                }
               }
+            }
+
+            if (hasMatch && relPath && relPath !== "" && relPath !== ".") {
+              results.push(fileMatch!);
             }
           } catch {
             // Ignore unreadable files
