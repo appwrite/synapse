@@ -13,8 +13,7 @@
     "test:watch": "node --no-warnings --experimental-vm-modules node_modules/.bin/jest --watch",
     "test:coverage": "node --no-warnings --experimental-vm-modules node_modules/.bin/jest --coverage",
     "lint": "eslint src/**/*.ts",
-    "format": "prettier --write .",
-    "prepare": "npm run build"
+    "format": "prettier --write ."
   },
   "repository": {
     "type": "git",
