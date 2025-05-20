@@ -17,12 +17,10 @@ jobs:
               uses: actions/setup-node@v2
               with:
                   node-version: 20
-            - name: Install pnpm
-              uses: pnpm/action-setup@v4
             - name: Install dependencies
-              run: pnpm install
+              run: npm install
             - name: Build packages
-              run: pnpm run build
+              run: npm run build
             - name: Publish @appwrite.io/pink-svelte
               uses: TorstenDittmann/try-module-action@main
               with:
