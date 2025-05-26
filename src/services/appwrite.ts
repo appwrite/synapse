@@ -1,7 +1,9 @@
 import * as fsSync from "fs";
 import { Client, Databases, Sites, Storage, Teams, Users } from "node-appwrite";
+import { Synapse } from "../synapse";
 
 export class Appwrite {
+  private synapse: Synapse;
   private client: Client;
   private serviceInstances: Record<string, any> = {};
   private availableServices: Record<string, any> = {
@@ -14,12 +16,12 @@ export class Appwrite {
   private workDir: string;
 
   constructor(
-    endpoint: string = "https://cloud.appwrite.io/v1",
+    synapse: Synapse,
     workDir: string = process.cwd(),
+    endpoint: string = "https://cloud.appwrite.io/v1",
   ) {
-    // Initialize client without any parameters
-    this.client = new Client();
-    this.client.setEndpoint(endpoint);
+    this.synapse = synapse;
+    this.client = new Client().setEndpoint(endpoint);
     if (workDir) {
       if (!fsSync.existsSync(workDir)) {
         fsSync.mkdirSync(workDir, { recursive: true });
