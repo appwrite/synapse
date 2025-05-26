@@ -1,5 +1,6 @@
 import { Client, Users } from "node-appwrite";
 import { Appwrite } from "../../src/services/appwrite";
+import { Synapse } from "../../src/synapse";
 
 jest.mock("node-appwrite", () => ({
   Client: jest.fn().mockImplementation(() => ({
@@ -25,7 +26,7 @@ describe("Appwrite", () => {
     MockedClient = Client as jest.MockedClass<typeof Client>;
 
     // Create a new instance
-    appwrite = new Appwrite();
+    appwrite = new Appwrite(new Synapse());
 
     // Get the mocked client instance
     mockClient = MockedClient.mock.results[0].value;
@@ -93,7 +94,7 @@ describe("Appwrite", () => {
     });
 
     it("should throw error when SDK is not initialized", async () => {
-      const uninitializedAppwrite = new Appwrite();
+      const uninitializedAppwrite = new Appwrite(new Synapse());
       await expect(uninitializedAppwrite.call("users", "list")).rejects.toThrow(
         "Appwrite SDK is not properly initialized",
       );

@@ -124,7 +124,7 @@ export class Appwrite {
   async call(
     serviceName: string,
     methodName: string,
-    ...args: any[]
+    args: object = {},
   ): Promise<any> {
     // Check if SDK is initialized before making any calls
     if (!this.isInitialized()) {
@@ -160,6 +160,6 @@ export class Appwrite {
     }
 
     // Call the method with provided arguments
-    return service[methodName](...args);
+    return service[methodName](args);
   }
 }
