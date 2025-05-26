@@ -21,7 +21,7 @@ jobs:
         run: npm ci
       - name: Build packages
         run: npm run build
-      - name: Publish @appwrite.io/pink-svelte
+      - name: Publish @appwrite.io/synapse
         uses: TorstenDittmann/try-module-action@1.0.15
         with:
           organization: appwrite
