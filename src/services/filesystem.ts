@@ -1,9 +1,14 @@
+import archiver from "archiver";
+import chokidar, { FSWatcher } from "chokidar";
 import * as fsSync from "fs";
 import { constants as fsConstants } from "fs";
 import * as fs from "fs/promises";
 import ignore from "ignore";
+import mime from "mime-types";
 import * as path from "path";
 import { Synapse } from "../synapse";
+
+const IGNORE_PATTERNS = ["node_modules", "dist", "build", "coverage", "logs"];
 
 export type FileItem = {
   name: string;
@@ -16,6 +21,15 @@ export type FileItemResult = {
   error?: string;
 };
 
+export type FileContent = {
+  success: boolean;
+  data?: {
+    content: string;
+    mimeType: string;
+  };
+  error?: string;
+};
+
 export type FileOperationResult = {
   success: boolean;
   data?: string;
@@ -24,16 +38,33 @@ export type FileOperationResult = {
 
 export type FileSearchResult = {
   success: boolean;
-  data?: {
-    results: string[];
-  };
   error?: string;
+  data?: {
+    results: FileSearchMatch[];
+  };
+};
+
+export type FileSearchMatch = {
+  path: string;
+  matches: Array<{
+    row: number;
+    column: number;
+    line: string;
+  }>;
+};
+
+export type ZipResult = {
+  success: boolean;
+  error?: string;
+  data?: {
+    buffer: Buffer;
+  };
 };
 
 export class Filesystem {
   private synapse: Synapse;
   private workDir: string;
-  private folderWatchers: Map<string, fsSync.FSWatcher> = new Map();
+  private folderWatchers: Map<string, FSWatcher> = new Map();
 
   /**
    * Creates a new Filesystem instance
@@ -134,13 +165,20 @@ export class Filesystem {
    * @returns Promise<FileOperationResult> containing the file content in the data property
    * @throws Error if file reading fails
    */
-  async getFile(filePath: string): Promise<FileOperationResult> {
+  async getFile(filePath: string): Promise<FileContent> {
     try {
       const fullPath = this.resolvePath(filePath);
 
-      const data = await fs.readFile(fullPath, "utf-8");
+      const content = await fs.readFile(fullPath, "utf-8");
+      const mimeType = mime.lookup(fullPath);
 
-      return { success: true, data };
+      return {
+        success: true,
+        data: {
+          content,
+          mimeType: mimeType || "text/plain",
+        },
+      };
     } catch (error) {
       this.log(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -416,7 +454,11 @@ export class Filesystem {
    * @param onChange - Callback to call with the path and new content of the changed file
    */
   watchWorkDir(
-    onChange: (result: { path: string; content: string | null }) => void,
+    onChange: (result: {
+      path: string;
+      event: string;
+      content: string | null;
+    }) => void,
   ): void {
     const fullPath = this.resolvePath(this.workDir);
     if (this.folderWatchers.has(fullPath)) {
@@ -435,35 +477,57 @@ export class Filesystem {
       ig = null;
     }
 
-    const watcher = fsSync.watch(
-      fullPath,
-      { recursive: true },
-      async (eventType, filename) => {
-        if (!filename) return;
-        // filename is relative to workDir
-        // ignore always expects forward slashes
-        const relPath = filename.replace(/\\/g, "/");
-        if (ig && ig.ignores(relPath)) {
-          return; // ignore this change
+    // Initialize chokidar watcher
+    const watcher = chokidar.watch(fullPath, {
+      ignored: (filePath: string) => {
+        if (ig) {
+          const relativePath = path
+            .relative(path.resolve(fullPath), path.resolve(filePath))
+            .replace(/\\/g, "/");
+          if (relativePath === "" || relativePath === ".") {
+            return false;
+          }
+          if (relativePath.startsWith("..")) {
+            return true;
+          }
+          if (ig.ignores(relativePath)) {
+            this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
+            return true;
+          }
+          if (
+            IGNORE_PATTERNS.some((pattern) => relativePath.includes(pattern))
+          ) {
+            this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
+            return true;
+          }
         }
-        const changedPath = path.join("/", filename); // relative to workDir
-        const absPath = path.join(this.workDir, filename);
+        return false;
+      },
+    });
+
+    // Bind events
+    watcher
+      .on("all", async (event, filePath) => {
+        const relativePath = path.relative(fullPath, filePath);
+        const changedPath = relativePath;
 
         try {
-          const stat = await fs.lstat(absPath);
+          const stat = await fs.lstat(filePath);
           if (stat.isFile()) {
-            const content = await fs.readFile(absPath, "utf-8");
-            onChange({ path: changedPath, content });
+            const content = await fs.readFile(filePath, "utf-8");
+            this.log(`Event: ${event}, filePath: ${changedPath}`);
+            onChange({ path: changedPath, event, content });
           } else {
-            // It's a directory, not a file
-            onChange({ path: changedPath, content: null });
+            this.log(`Event: ${event}, filePath: ${changedPath}`);
+            onChange({ path: changedPath, event, content: null });
           }
         } catch {
-          // File might have been deleted or is inaccessible
-          onChange({ path: changedPath, content: null });
+          onChange({ path: changedPath, event, content: null });
         }
-      },
-    );
+      })
+      .on("error", (error: unknown) => {
+        console.error(`Watcher error: ${error}`);
+      });
 
     this.folderWatchers.set(fullPath, watcher);
   }
@@ -505,16 +569,16 @@ export class Filesystem {
   /**
    * Searches for files in the current workDir based on a search term.
    * Matches both file paths and file contents.
-   * @param searchTerm - The term to search for in file paths or contents
-   * @returns Promise<FileSearchResult> - List of matching file paths (relative to workDir)
+   * @param term - The term to search for in file paths or contents
+   * @returns Promise<FileSearchResult> - List of matching file paths with row and column information
    */
-  async searchFiles(searchTerm: string): Promise<FileSearchResult> {
-    if (!searchTerm || searchTerm.trim() === "") {
+  async searchFiles(term: string): Promise<FileSearchResult> {
+    if (!term || term.trim() === "") {
       return { success: false, error: "Search term is required" };
     }
-    const results: string[] = [];
+    const results: FileSearchMatch[] = [];
     const workDir = path.resolve(this.workDir);
-    const searchLower = searchTerm.toLowerCase();
+    const searchLower = term.toLowerCase();
 
     // Read and parse .gitignore
     let ig: ReturnType<typeof ignore> | null = null;
@@ -545,20 +609,49 @@ export class Filesystem {
         if (entry.isDirectory()) {
           await walk(absPath);
         } else if (entry.isFile()) {
+          let fileMatch: FileSearchMatch | null = null;
+
           // Check if file path matches
           if (relPath.toLowerCase().includes(searchLower)) {
             if (relPath && relPath !== "" && relPath !== ".") {
-              results.push(relPath);
+              fileMatch = { path: relPath, matches: [] };
+              results.push(fileMatch);
             }
             continue;
           }
+
           // Check if file content matches
           try {
             const content = await fs.readFile(absPath, "utf-8");
-            if (content.toLowerCase().includes(searchLower)) {
-              if (relPath && relPath !== "" && relPath !== ".") {
-                results.push(relPath);
+            const lines = content.split("\n");
+            let hasMatch = false;
+
+            for (let rowIndex = 0; rowIndex < lines.length; rowIndex++) {
+              const line = lines[rowIndex];
+              const lineLower = line.toLowerCase();
+              let columnIndex = lineLower.indexOf(searchLower);
+
+              if (columnIndex !== -1) {
+                if (!hasMatch) {
+                  fileMatch = { path: relPath, matches: [] };
+                  hasMatch = true;
+                }
+
+                // Find all occurrences in the current line
+                while (columnIndex !== -1) {
+                  fileMatch!.matches.push({
+                    row: rowIndex + 1,
+                    column: columnIndex + 1,
+                    line: line.trim(),
+                  });
+
+                  columnIndex = lineLower.indexOf(searchLower, columnIndex + 1);
+                }
               }
+            }
+
+            if (hasMatch && relPath && relPath !== "" && relPath !== ".") {
+              results.push(fileMatch!);
             }
           } catch {
             // Ignore unreadable files
@@ -569,5 +662,61 @@ export class Filesystem {
 
     await walk(workDir);
     return { success: true, data: { results } };
+  }
+
+  /**
+   * Creates a zip file containing all files in the workDir and returns it as a Buffer
+   * @returns Promise<ZipResult> containing the zip file as a Buffer
+   */
+  async createZipFile(): Promise<ZipResult> {
+    try {
+      const archive = archiver("zip", {
+        zlib: { level: 9 }, // Maximum compression
+      });
+
+      // Use a more direct approach with streams
+      const bufferChunks: Buffer[] = [];
+
+      // Set up promise to track completion
+      const archivePromise = new Promise<Buffer>((resolve, reject) => {
+        archive.on("data", (chunk: Buffer) => bufferChunks.push(chunk));
+        archive.on("end", () => resolve(Buffer.concat(bufferChunks)));
+        archive.on("error", (err: Error) => reject(err));
+      });
+
+      // Recursively add files to archive
+      const addDirectory = async (dir: string) => {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          const relativePath = path
+            .relative(this.workDir, fullPath)
+            .replace(/\\/g, "/");
+
+          if (entry.isDirectory()) {
+            await addDirectory(fullPath);
+          } else {
+            archive.file(fullPath, { name: relativePath });
+          }
+        }
+      };
+
+      // Process files and finalize archive
+      await addDirectory(this.workDir);
+      archive.finalize();
+
+      // Wait for archive to complete and return result
+      const buffer = await archivePromise;
+      return {
+        success: true,
+        data: { buffer },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 }

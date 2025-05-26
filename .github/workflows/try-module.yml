@@ -1,0 +1,30 @@
+name: Publish to try-module.cloud
+
+on:
+    pull_request:
+
+permissions:
+    pull-requests: write
+    contents: read
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+            - name: Use Node.js
+              uses: actions/setup-node@v2
+              with:
+                  node-version: 20
+            - name: Install dependencies
+              run: npm ci
+            - name: Build packages
+              run: npm run build
+            - name: Publish @appwrite.io/pink-svelte
+              uses: TorstenDittmann/try-module-action@1.0.15
+              with:
+                  organization: appwrite
+                  directory: ./
+                  secret: ${{ secrets.TRY_MODULE_SECRET }}
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
