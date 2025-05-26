@@ -1,3 +1,4 @@
+import * as fsSync from "fs";
 import { Client, Databases, Sites, Storage, Teams, Users } from "node-appwrite";
 
 export class Appwrite {
@@ -10,10 +11,23 @@ export class Appwrite {
     storage: Storage,
     sites: Sites,
   };
+  private workDir: string;
 
-  constructor() {
+  constructor(
+    endpoint: string = "https://cloud.appwrite.io/v1",
+    workDir: string = process.cwd(),
+  ) {
     // Initialize client without any parameters
     this.client = new Client();
+    this.client.setEndpoint(endpoint);
+    if (workDir) {
+      if (!fsSync.existsSync(workDir)) {
+        fsSync.mkdirSync(workDir, { recursive: true });
+      }
+      this.workDir = workDir;
+    } else {
+      this.workDir = process.cwd();
+    }
   }
 
   /**
@@ -71,6 +85,14 @@ export class Appwrite {
    */
   getClient(): Client {
     return this.client;
+  }
+
+  /**
+   * Get the working directory
+   * @returns the working directory
+   */
+  getWorkDir(): string {
+    return this.workDir;
   }
 
   /**
