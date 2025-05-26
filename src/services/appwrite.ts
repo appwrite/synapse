@@ -1,10 +1,4 @@
-import {
-  Client,
-  Databases,
-  Storage,
-  Teams,
-  Users,
-} from "node-appwrite";
+import { Client, Databases, Sites, Storage, Teams, Users } from "node-appwrite";
 
 export class Appwrite {
   private client: Client;
@@ -14,6 +8,7 @@ export class Appwrite {
     users: Users,
     databases: Databases,
     storage: Storage,
+    sites: Sites,
   };
 
   constructor() {
