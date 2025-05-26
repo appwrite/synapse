@@ -29,7 +29,7 @@
     "node-pty": "^1.0.0",
     "prettier": "^3.5.3",
     "ws": "^8.18.2",
-    "node-appwrite": "16.0.0"
+    "node-appwrite": "17.0.0"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.3",
