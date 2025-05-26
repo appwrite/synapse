@@ -22,7 +22,7 @@ jobs:
       - name: Build packages
         run: npm run build
       - name: Publish @appwrite.io/synapse
-        uses: TorstenDittmann/try-module-action@1.0.15
+        uses: TorstenDittmann/try-module-action@1.0.18
         with:
           organization: appwrite
           directory: ./
