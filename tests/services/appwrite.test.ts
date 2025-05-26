@@ -120,7 +120,7 @@ describe("Appwrite", () => {
       const result = await appwrite.call("users", "list", { limit: 10 });
 
       expect(Users).toHaveBeenCalledWith(mockClient);
-      expect(mockUsers.list).toHaveBeenCalledWith({ limit: 10 });
+      expect(mockUsers.list).toHaveBeenCalledWith(10);
       expect(result).toEqual(mockResponse);
     });
   });

@@ -160,6 +160,6 @@ export class Appwrite {
     }
 
     // Call the method with provided arguments
-    return service[methodName](args);
+    return service[methodName](...Object.values(args));
   }
 }
