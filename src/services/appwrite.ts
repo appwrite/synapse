@@ -1,4 +1,10 @@
-import { Client, Account, Databases, Functions, Storage, Teams, Users } from 'node-appwrite';
+import {
+  Client,
+  Databases,
+  Storage,
+  Teams,
+  Users,
+} from "node-appwrite";
 
 export class Appwrite {
   private client: Client;
@@ -7,7 +13,7 @@ export class Appwrite {
     teams: Teams,
     users: Users,
     databases: Databases,
-    storage: Storage
+    storage: Storage,
   };
 
   constructor() {
@@ -79,11 +85,11 @@ export class Appwrite {
   isInitialized(): boolean {
     // Access the private config from the client to check initialization status
     const config = (this.client as any).config;
-    
+
     // Check if all required configuration values are set
     return !!(
-      config?.endpoint && 
-      config?.project && 
+      config?.endpoint &&
+      config?.project &&
       (config?.key || config?.jwt || config?.session)
     );
   }
@@ -96,32 +102,44 @@ export class Appwrite {
    * @returns The result of the method call
    * @throws Error if service or method does not exist
    */
-  async call(serviceName: string, methodName: string, ...args: any[]): Promise<any> {
+  async call(
+    serviceName: string,
+    methodName: string,
+    ...args: any[]
+  ): Promise<any> {
     // Check if SDK is initialized before making any calls
     if (!this.isInitialized()) {
-      throw new Error('Appwrite SDK is not properly initialized. Please ensure endpoint, project ID, and authentication (API key, JWT, or session) are set.');
+      throw new Error(
+        "Appwrite SDK is not properly initialized. Please ensure endpoint, project ID, and authentication (API key, JWT, or session) are set.",
+      );
     }
-    
+
     // Convert service name to lowercase for case-insensitive matching
     const normalizedServiceName = serviceName.toLowerCase();
-    
+
     // Check if service exists
     if (!this.availableServices[normalizedServiceName]) {
-      throw new Error(`Service '${serviceName}' does not exist in Appwrite SDK`);
+      throw new Error(
+        `Service '${serviceName}' does not exist in Appwrite SDK`,
+      );
     }
 
     // Get or create service instance
     if (!this.serviceInstances[normalizedServiceName]) {
-      this.serviceInstances[normalizedServiceName] = new this.availableServices[normalizedServiceName](this.client);
+      this.serviceInstances[normalizedServiceName] = new this.availableServices[
+        normalizedServiceName
+      ](this.client);
     }
-    
+
     const service = this.serviceInstances[normalizedServiceName];
-    
+
     // Check if method exists
-    if (typeof service[methodName] !== 'function') {
-      throw new Error(`Method '${methodName}' does not exist in service '${serviceName}'`);
+    if (typeof service[methodName] !== "function") {
+      throw new Error(
+        `Method '${methodName}' does not exist in service '${serviceName}'`,
+      );
     }
-    
+
     // Call the method with provided arguments
     return service[methodName](...args);
   }
