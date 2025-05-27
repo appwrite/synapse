@@ -668,7 +668,7 @@ export class Filesystem {
    * Creates a gzip file containing all files in the workDir and returns it as a Buffer
    * @returns Promise<ZipResult> containing the gzip file as a Buffer
    */
-  async createGzipFile(): Promise<ZipResult> {
+  async createGzipFile(saveAs: string | null = null): Promise<ZipResult> {
     try {
       const archive = archiver("tar", {
         zlib: { level: 9 }, // Maximum compression
@@ -705,6 +705,15 @@ export class Filesystem {
       // Process files and finalize archive
       await addDirectory(this.workDir);
       archive.finalize();
+
+      if (saveAs) {
+        const writeStream = fsSync.createWriteStream(saveAs);
+        archive.pipe(writeStream);
+        await new Promise<void>((resolve, reject) => {
+          writeStream.on("finish", () => resolve());
+          writeStream.on("error", (error) => reject(error));
+        });
+      }
 
       // Wait for archive to complete and return result
       const buffer = await archivePromise;
