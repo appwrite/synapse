@@ -665,12 +665,12 @@ export class Filesystem {
   }
 
   /**
-   * Creates a zip file containing all files in the workDir and returns it as a Buffer
-   * @returns Promise<ZipResult> containing the zip file as a Buffer
+   * Creates a gzip file containing all files in the workDir and returns it as a Buffer
+   * @returns Promise<ZipResult> containing the gzip file as a Buffer
    */
-  async createZipFile(): Promise<ZipResult> {
+  async createGzipFile(): Promise<ZipResult> {
     try {
-      const archive = archiver("zip", {
+      const archive = archiver("tar", {
         zlib: { level: 9 }, // Maximum compression
       });
 

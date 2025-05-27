@@ -268,10 +268,13 @@ describe("Filesystem", () => {
       // Mock archiver constructor
       (archiver as unknown as jest.Mock).mockReturnValue(mockArchive);
 
-      const result = await filesystem.createZipFile();
+      const result = await filesystem.createGzipFile();
 
       expect(result.success).toBe(true);
       expect(result.data?.buffer).toBeInstanceOf(Buffer);
+      expect(archiver).toHaveBeenCalledWith("tar", {
+        zlib: { level: 9 }, // Maximum compression
+      });
       expect(mockArchive.file).toHaveBeenCalledTimes(3); // 2 files in root + 1 in subdir
       expect(mockArchive.finalize).toHaveBeenCalled();
     });
@@ -282,7 +285,7 @@ describe("Filesystem", () => {
         new Error("Failed to read directory"),
       );
 
-      const result = await filesystem.createZipFile();
+      const result = await filesystem.createGzipFile();
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Failed to read directory");
