@@ -329,7 +329,9 @@ describe("Filesystem", () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.buffer).toBeInstanceOf(Buffer);
-      expect(fsSync.createWriteStream).toHaveBeenCalledWith("test.tar.gz");
+      expect(fsSync.createWriteStream).toHaveBeenCalledWith(
+        path.join(process.cwd(), "tmp", "test", "test.tar.gz"),
+      );
       expect(mockArchive.pipe).toHaveBeenCalledWith(mockWriteStream);
     });
 

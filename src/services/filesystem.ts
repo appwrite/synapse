@@ -707,7 +707,8 @@ export class Filesystem {
       archive.finalize();
 
       if (saveAs) {
-        const writeStream = fsSync.createWriteStream(saveAs);
+        const fullSavePath = this.resolvePath(saveAs);
+        const writeStream = fsSync.createWriteStream(fullSavePath);
         archive.pipe(writeStream);
         await new Promise<void>((resolve, reject) => {
           writeStream.on("finish", () => resolve());
