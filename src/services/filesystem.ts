@@ -477,29 +477,24 @@ export class Filesystem {
       ig = null;
     }
 
-    // Initialize chokidar watcher
     const watcher = chokidar.watch(fullPath, {
       ignored: (filePath: string) => {
-        if (ig) {
-          const relativePath = path
-            .relative(path.resolve(fullPath), path.resolve(filePath))
-            .replace(/\\/g, "/");
-          if (relativePath === "" || relativePath === ".") {
-            return false;
-          }
-          if (relativePath.startsWith("..")) {
-            return true;
-          }
-          if (ig.ignores(relativePath)) {
-            this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
-            return true;
-          }
-          if (
-            IGNORE_PATTERNS.some((pattern) => relativePath.includes(pattern))
-          ) {
-            this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
-            return true;
-          }
+        const relativePath = path
+          .relative(path.resolve(fullPath), path.resolve(filePath))
+          .replace(/\\/g, "/");
+        if (relativePath === "" || relativePath === ".") {
+          return false;
+        }
+        if (relativePath.startsWith("..")) {
+          return true;
+        }
+        if (IGNORE_PATTERNS.some((pattern) => relativePath.includes(pattern))) {
+          this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
+          return true;
+        }
+        if (ig && ig.ignores(relativePath)) {
+          this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
+          return true;
         }
         return false;
       },
