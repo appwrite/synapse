@@ -477,29 +477,24 @@ export class Filesystem {
       ig = null;
     }
 
-    // Initialize chokidar watcher
     const watcher = chokidar.watch(fullPath, {
       ignored: (filePath: string) => {
-        if (ig) {
-          const relativePath = path
-            .relative(path.resolve(fullPath), path.resolve(filePath))
-            .replace(/\\/g, "/");
-          if (relativePath === "" || relativePath === ".") {
-            return false;
-          }
-          if (relativePath.startsWith("..")) {
-            return true;
-          }
-          if (ig.ignores(relativePath)) {
-            this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
-            return true;
-          }
-          if (
-            IGNORE_PATTERNS.some((pattern) => relativePath.includes(pattern))
-          ) {
-            this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
-            return true;
-          }
+        const relativePath = path
+          .relative(path.resolve(fullPath), path.resolve(filePath))
+          .replace(/\\/g, "/");
+        if (relativePath === "" || relativePath === ".") {
+          return false;
+        }
+        if (relativePath.startsWith("..")) {
+          return true;
+        }
+        if (IGNORE_PATTERNS.some((pattern) => relativePath.includes(pattern))) {
+          this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
+          return true;
+        }
+        if (ig && ig.ignores(relativePath)) {
+          this.log(`Ignoring file: ${relativePath}, filePath: ${filePath}`);
+          return true;
         }
         return false;
       },
@@ -665,13 +660,14 @@ export class Filesystem {
   }
 
   /**
-   * Creates a zip file containing all files in the workDir and returns it as a Buffer
-   * @returns Promise<ZipResult> containing the zip file as a Buffer
+   * Creates a gzip file containing all files in the workDir and returns it as a Buffer
+   * @returns Promise<ZipResult> containing the gzip file as a Buffer
    */
-  async createZipFile(): Promise<ZipResult> {
+  async createGzipFile(saveAs: string | null = null): Promise<ZipResult> {
     try {
-      const archive = archiver("zip", {
-        zlib: { level: 9 }, // Maximum compression
+      const archive = archiver("tar", {
+        gzip: true,
+        gzipOptions: { level: 9 },
       });
 
       // Use a more direct approach with streams
@@ -694,17 +690,43 @@ export class Filesystem {
             .relative(this.workDir, fullPath)
             .replace(/\\/g, "/");
 
+          // Skip .git directory and other common ignored patterns
+          if (
+            IGNORE_PATTERNS.some((pattern) => relativePath.includes(pattern))
+          ) {
+            continue;
+          }
+
           if (entry.isDirectory()) {
             await addDirectory(fullPath);
           } else {
-            archive.file(fullPath, { name: relativePath });
+            try {
+              const stats = await fs.stat(fullPath);
+              if (stats.isFile()) {
+                archive.file(fullPath, { name: relativePath });
+              }
+            } catch (err) {
+              console.warn(`Skipping file ${fullPath}: ${err}`);
+            }
           }
         }
       };
 
-      // Process files and finalize archive
+      // Process files
       await addDirectory(this.workDir);
+
+      // Finalize archive
       archive.finalize();
+
+      if (saveAs) {
+        const fullSavePath = this.resolvePath(saveAs);
+        const writeStream = fsSync.createWriteStream(fullSavePath);
+        archive.pipe(writeStream);
+        await new Promise<void>((resolve, reject) => {
+          writeStream.on("finish", () => resolve());
+          writeStream.on("error", (error) => reject(error));
+        });
+      }
 
       // Wait for archive to complete and return result
       const buffer = await archivePromise;
