@@ -1,12 +1,9 @@
-import {
-  Client,
-  Databases,
-  Storage,
-  Teams,
-  Users,
-} from "node-appwrite";
+import * as fsSync from "fs";
+import { Client, Databases, Sites, Storage, Teams, Users } from "node-appwrite";
+import { Synapse } from "../synapse";
 
 export class Appwrite {
+  private synapse: Synapse;
   private client: Client;
   private serviceInstances: Record<string, any> = {};
   private availableServices: Record<string, any> = {
@@ -14,11 +11,25 @@ export class Appwrite {
     users: Users,
     databases: Databases,
     storage: Storage,
+    sites: Sites,
   };
+  private workDir: string;
 
-  constructor() {
-    // Initialize client without any parameters
-    this.client = new Client();
+  constructor(
+    synapse: Synapse,
+    workDir: string = process.cwd(),
+    endpoint: string = "https://cloud.appwrite.io/v1",
+  ) {
+    this.synapse = synapse;
+    this.client = new Client().setEndpoint(endpoint);
+    if (workDir) {
+      if (!fsSync.existsSync(workDir)) {
+        fsSync.mkdirSync(workDir, { recursive: true });
+      }
+      this.workDir = workDir;
+    } else {
+      this.workDir = process.cwd();
+    }
   }
 
   /**
@@ -79,6 +90,14 @@ export class Appwrite {
   }
 
   /**
+   * Get the working directory
+   * @returns the working directory
+   */
+  getWorkDir(): string {
+    return this.workDir;
+  }
+
+  /**
    * Check if the SDK has been properly initialized
    * @returns boolean indicating if endpoint, project ID, and API key are all set
    */
@@ -105,7 +124,7 @@ export class Appwrite {
   async call(
     serviceName: string,
     methodName: string,
-    ...args: any[]
+    args: object = {},
   ): Promise<any> {
     // Check if SDK is initialized before making any calls
     if (!this.isInitialized()) {
@@ -141,6 +160,6 @@ export class Appwrite {
     }
 
     // Call the method with provided arguments
-    return service[methodName](...args);
+    return service[methodName](...Object.values(args));
   }
 }

@@ -1,6 +1,7 @@
 import * as archiver from "archiver";
 import * as chokidar from "chokidar";
 import * as fs from "fs";
+import * as fsSync from "fs";
 import * as fsp from "fs/promises";
 import * as path from "path";
 import { Filesystem } from "../../src/services/filesystem";
@@ -268,12 +269,70 @@ describe("Filesystem", () => {
       // Mock archiver constructor
       (archiver as unknown as jest.Mock).mockReturnValue(mockArchive);
 
-      const result = await filesystem.createZipFile();
+      const result = await filesystem.createGzipFile();
 
       expect(result.success).toBe(true);
       expect(result.data?.buffer).toBeInstanceOf(Buffer);
-      expect(mockArchive.file).toHaveBeenCalledTimes(3); // 2 files in root + 1 in subdir
+      expect(archiver).toHaveBeenCalledWith("tar", {
+        gzip: true,
+        gzipOptions: { level: 9 },
+      });
       expect(mockArchive.finalize).toHaveBeenCalled();
+    });
+
+    it("should create a zip file containing all files and save it to a file", async () => {
+      // Mock directory structure
+      const mockFiles = [
+        { name: "file1.txt", isDirectory: () => false, isFile: () => true },
+        { name: "file2.txt", isDirectory: () => false, isFile: () => true },
+      ];
+
+      // Mock fs.readdir to return our mock files
+      (fsp.readdir as jest.Mock).mockImplementation(async (dir) => {
+        if (dir === tempDir) {
+          return mockFiles;
+        }
+        return [];
+      });
+
+      // Mock archiver events
+      const mockArchive = {
+        on: jest.fn().mockImplementation((event, callback) => {
+          if (event === "data") {
+            callback(Buffer.from("test data"));
+          }
+          if (event === "end") {
+            callback();
+          }
+          return mockArchive;
+        }),
+        file: jest.fn(),
+        finalize: jest.fn(),
+        pipe: jest.fn().mockReturnThis(),
+      };
+
+      // Mock archiver constructor
+      (archiver as unknown as jest.Mock).mockReturnValue(mockArchive);
+
+      // Mock write stream
+      const mockWriteStream = {
+        on: jest.fn().mockImplementation((event, callback) => {
+          if (event === "finish") {
+            callback();
+          }
+          return mockWriteStream;
+        }),
+      };
+      (fsSync.createWriteStream as jest.Mock).mockReturnValue(mockWriteStream);
+
+      const result = await filesystem.createGzipFile("test.tar.gz");
+
+      expect(result.success).toBe(true);
+      expect(result.data?.buffer).toBeInstanceOf(Buffer);
+      expect(fsSync.createWriteStream).toHaveBeenCalledWith(
+        path.join(process.cwd(), "tmp", "test", "test.tar.gz"),
+      );
+      expect(mockArchive.pipe).toHaveBeenCalledWith(mockWriteStream);
     });
 
     it("should handle errors during zip creation", async () => {
@@ -282,7 +341,7 @@ describe("Filesystem", () => {
         new Error("Failed to read directory"),
       );
 
-      const result = await filesystem.createZipFile();
+      const result = await filesystem.createGzipFile();
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Failed to read directory");
