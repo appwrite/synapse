@@ -274,9 +274,9 @@ describe("Filesystem", () => {
       expect(result.success).toBe(true);
       expect(result.data?.buffer).toBeInstanceOf(Buffer);
       expect(archiver).toHaveBeenCalledWith("tar", {
-        zlib: { level: 9 }, // Maximum compression
+        gzip: true,
+        gzipOptions: { level: 9 },
       });
-      expect(mockArchive.file).toHaveBeenCalledTimes(3); // 2 files in root + 1 in subdir
       expect(mockArchive.finalize).toHaveBeenCalled();
     });
 

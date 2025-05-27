@@ -666,7 +666,8 @@ export class Filesystem {
   async createGzipFile(saveAs: string | null = null): Promise<ZipResult> {
     try {
       const archive = archiver("tar", {
-        zlib: { level: 9 }, // Maximum compression
+        gzip: true,
+        gzipOptions: { level: 9 },
       });
 
       // Use a more direct approach with streams
@@ -689,16 +690,32 @@ export class Filesystem {
             .relative(this.workDir, fullPath)
             .replace(/\\/g, "/");
 
+          // Skip .git directory and other common ignored patterns
+          if (
+            IGNORE_PATTERNS.some((pattern) => relativePath.includes(pattern))
+          ) {
+            continue;
+          }
+
           if (entry.isDirectory()) {
             await addDirectory(fullPath);
           } else {
-            archive.file(fullPath, { name: relativePath });
+            try {
+              const stats = await fs.stat(fullPath);
+              if (stats.isFile()) {
+                archive.file(fullPath, { name: relativePath });
+              }
+            } catch (err) {
+              console.warn(`Skipping file ${fullPath}: ${err}`);
+            }
           }
         }
       };
 
-      // Process files and finalize archive
+      // Process files
       await addDirectory(this.workDir);
+
+      // Finalize archive
       archive.finalize();
 
       if (saveAs) {
