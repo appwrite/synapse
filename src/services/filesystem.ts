@@ -670,17 +670,7 @@ export class Filesystem {
         gzipOptions: { level: 9 },
       });
 
-      // Use a more direct approach with streams
-      const bufferChunks: Buffer[] = [];
-
-      // Set up promise to track completion
-      const archivePromise = new Promise<Buffer>((resolve, reject) => {
-        archive.on("data", (chunk: Buffer) => bufferChunks.push(chunk));
-        archive.on("end", () => resolve(Buffer.concat(bufferChunks)));
-        archive.on("error", (err: Error) => reject(err));
-      });
-
-      // Recursively add files to archive
+      // Recursively add files to archive first
       const addDirectory = async (dir: string) => {
         const entries = await fs.readdir(dir, { withFileTypes: true });
 
@@ -715,25 +705,45 @@ export class Filesystem {
       // Process files
       await addDirectory(this.workDir);
 
-      // Finalize archive
-      archive.finalize();
-
+      // Handle saving to file and getting buffer
       if (saveAs) {
+        // Save to file
         const fullSavePath = this.resolvePath(saveAs);
         const writeStream = fsSync.createWriteStream(fullSavePath);
+
         archive.pipe(writeStream);
+        archive.finalize();
+
         await new Promise<void>((resolve, reject) => {
           writeStream.on("finish", () => resolve());
           writeStream.on("error", (error) => reject(error));
+          archive.on("error", (error) => reject(error));
         });
-      }
 
-      // Wait for archive to complete and return result
-      const buffer = await archivePromise;
-      return {
-        success: true,
-        data: { buffer },
-      };
+        // Read the file back as buffer
+        const buffer = await fs.readFile(fullSavePath);
+        return {
+          success: true,
+          data: { buffer },
+        };
+      } else {
+        // Just get buffer without saving to file
+        const bufferChunks: Buffer[] = [];
+
+        const archivePromise = new Promise<Buffer>((resolve, reject) => {
+          archive.on("data", (chunk: Buffer) => bufferChunks.push(chunk));
+          archive.on("end", () => resolve(Buffer.concat(bufferChunks)));
+          archive.on("error", (err: Error) => reject(err));
+        });
+
+        archive.finalize();
+
+        const buffer = await archivePromise;
+        return {
+          success: true,
+          data: { buffer },
+        };
+      }
     } catch (error) {
       return {
         success: false,
