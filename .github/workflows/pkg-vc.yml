@@ -1,4 +1,4 @@
-name: Publish to try-module.cloud
+name: Publish to pkg.vc
 
 on:
   pull_request:
@@ -22,7 +22,7 @@ jobs:
       - name: Build packages
         run: npm run build
       - name: Publish @appwrite.io/synapse
-        uses: TorstenDittmann/try-module-action@main
+        uses: pkg-vc/publish-action@main
         with:
           organization: appwrite
           directory: ./
