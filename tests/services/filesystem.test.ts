@@ -325,6 +325,11 @@ describe("Filesystem", () => {
       };
       (fsSync.createWriteStream as jest.Mock).mockReturnValue(mockWriteStream);
 
+      // Mock the readFile to return a Buffer
+      (fsp.readFile as jest.Mock).mockResolvedValue(
+        Buffer.from("test content"),
+      );
+
       const result = await filesystem.createGzipFile("test.tar.gz");
 
       expect(result.success).toBe(true);
