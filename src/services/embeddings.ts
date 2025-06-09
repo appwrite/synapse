@@ -1,4 +1,3 @@
-import { pipeline } from "@xenova/transformers";
 import * as fsSync from "fs";
 import * as path from "path";
 import { Synapse } from "../synapse";
@@ -44,6 +43,10 @@ export class Embeddings {
     if (!this.extractor) {
       this.log("Initializing jina-embeddings-v2-base-code model...");
       try {
+        const TransformersApi = Function(
+          "return import('@xenova/transformers')",
+        )();
+        const { pipeline } = await TransformersApi;
         this.extractor = await pipeline(
           "feature-extraction",
           "jinaai/jina-embeddings-v2-base-code",
