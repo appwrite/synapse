@@ -31,7 +31,7 @@ export class Embeddings {
   constructor(
     synapse: Synapse,
     workDir: string,
-    modelName: string = "Xenova/all-MiniLM-L6-v2",
+    modelName: string = "sentence-transformers/all-MiniLM-L6-v2",
   ) {
     this.synapse = synapse;
     this.modelName = modelName;
