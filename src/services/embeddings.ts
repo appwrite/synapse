@@ -31,7 +31,7 @@ export class Embeddings {
   constructor(
     synapse: Synapse,
     workDir: string,
-    modelName: string = "sentence-transformers/all-MiniLM-L6-v2",
+    modelName: string = "jinaai/jina-embeddings-v2-base-code",
   ) {
     this.synapse = synapse;
     this.modelName = modelName;

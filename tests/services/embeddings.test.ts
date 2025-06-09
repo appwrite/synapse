@@ -109,7 +109,7 @@ describe("Embeddings", () => {
     });
 
     it("should initialize with custom model name", () => {
-      const customModel = "sentence-transformers/all-MiniLM-L6-v2";
+      const customModel = "jinaai/jina-embeddings-v2-base-code";
       const customEmbeddings = new Embeddings(
         mockSynapse,
         mockWorkDir,
@@ -129,7 +129,7 @@ describe("Embeddings", () => {
       );
       expect(mockPipeline).toHaveBeenCalledWith(
         "feature-extraction",
-        "sentence-transformers/all-MiniLM-L6-v2",
+        "jinaai/jina-embeddings-v2-base-code",
         { dtype: "q4" },
       );
       expect(mockEmbeddingFunction).toHaveBeenCalledTimes(3);
