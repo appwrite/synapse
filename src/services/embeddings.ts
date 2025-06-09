@@ -214,12 +214,17 @@ export class Embeddings {
   public async findRelevantDocuments(
     query: string,
     limit: number = 5,
-  ): Promise<{ success: boolean; data: RelevantDocument[] }> {
+  ): Promise<{ success: boolean; data: RelevantDocument[]; message: string }> {
     if (this.embeddings.length === 0) {
       this.log(
         "No embeddings available. Please run generateEmbeddings() first.",
       );
-      return { success: false, data: [] };
+      return {
+        success: false,
+        data: [],
+        message:
+          "No embeddings available. Please run generateEmbeddings() first.",
+      };
     }
 
     await this.initializeOpenAI();
@@ -257,10 +262,15 @@ export class Embeddings {
       return {
         success: true,
         data: results,
+        message: `Found ${results.length} relevant documents`,
       };
     } catch (error) {
       this.log(`Error finding relevant documents: ${error}`);
-      return { success: false, data: [] };
+      return {
+        success: false,
+        data: [],
+        message: `Error finding relevant documents: ${error}`,
+      };
     }
   }
 
