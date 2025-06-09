@@ -109,7 +109,7 @@ describe("Embeddings", () => {
     });
 
     it("should initialize with custom model name", () => {
-      const customModel = "Xenova/all-mpnet-base-v2";
+      const customModel = "sentence-transformers/all-MiniLM-L6-v2";
       const customEmbeddings = new Embeddings(
         mockSynapse,
         mockWorkDir,
@@ -129,7 +129,7 @@ describe("Embeddings", () => {
       );
       expect(mockPipeline).toHaveBeenCalledWith(
         "feature-extraction",
-        "Xenova/all-MiniLM-L6-v2",
+        "sentence-transformers/all-MiniLM-L6-v2",
         { dtype: "q4" },
       );
       expect(mockEmbeddingFunction).toHaveBeenCalledTimes(3);
