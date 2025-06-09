@@ -3,18 +3,23 @@ import OpenAI from "openai";
 import * as path from "path";
 import { Synapse } from "../synapse";
 
-interface DocumentEmbedding {
+export type EmbeddingResult = {
+  success: boolean;
+  message: string;
+};
+
+export type DocumentEmbedding = {
   filePath: string;
   content: string;
   embedding: number[];
   size: number;
-}
+};
 
-interface RelevantDocument {
+export type RelevantDocument = {
   filePath: string;
   content: string;
   similarity: number;
-}
+};
 
 export class Embeddings {
   private synapse: Synapse;
@@ -147,7 +152,7 @@ export class Embeddings {
     return dotProduct / (magnitudeA * magnitudeB);
   }
 
-  public async generateEmbeddings(): Promise<void> {
+  public async generateEmbeddings(): Promise<EmbeddingResult> {
     this.log("Starting embedding generation for codebase...");
 
     await this.initializeOpenAI();
@@ -156,6 +161,7 @@ export class Embeddings {
     this.log(`Found ${files.length} code files to process`);
 
     this.embeddings = [];
+    let success = true;
 
     for (let i = 0; i < files.length; i++) {
       const filePath = files[i];
@@ -189,23 +195,31 @@ export class Embeddings {
         this.log(`Successfully processed: ${relativePath}`);
       } catch (error) {
         this.log(`Error processing file ${relativePath}: ${error}`);
+        success = false;
       }
     }
 
     this.log(
       `Embedding generation completed. Generated embeddings for ${this.embeddings.length} files.`,
     );
+
+    return {
+      success: success,
+      message: success
+        ? `Successfully generated embeddings for ${this.embeddings.length} files.`
+        : `Failed to generate embeddings for some files.`,
+    };
   }
 
   public async findRelevantDocuments(
     query: string,
     limit: number = 5,
-  ): Promise<RelevantDocument[]> {
+  ): Promise<{ success: boolean; data: RelevantDocument[] }> {
     if (this.embeddings.length === 0) {
       this.log(
         "No embeddings available. Please run generateEmbeddings() first.",
       );
-      return [];
+      return { success: false, data: [] };
     }
 
     await this.initializeOpenAI();
@@ -240,10 +254,13 @@ export class Embeddings {
         );
       });
 
-      return results;
+      return {
+        success: true,
+        data: results,
+      };
     } catch (error) {
       this.log(`Error finding relevant documents: ${error}`);
-      return [];
+      return { success: false, data: [] };
     }
   }
 
