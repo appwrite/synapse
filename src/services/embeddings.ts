@@ -1,7 +1,11 @@
+import { env, pipeline } from "@huggingface/transformers";
 import * as fsSync from "fs";
-import OpenAI from "openai";
 import * as path from "path";
 import { Synapse } from "../synapse";
+
+// Disable remote models and use local cache
+env.allowRemoteModels = false;
+env.allowLocalModels = true;
 
 export type EmbeddingResult = {
   success: boolean;
@@ -25,10 +29,16 @@ export class Embeddings {
   private synapse: Synapse;
   private workDir: string;
   private embeddings: DocumentEmbedding[] = [];
-  private openai: OpenAI | null = null;
+  private embeddingPipeline: any = null;
+  private modelName: string;
 
-  constructor(synapse: Synapse, workDir: string) {
+  constructor(
+    synapse: Synapse,
+    workDir: string,
+    modelName: string = "Xenova/all-MiniLM-L6-v2",
+  ) {
     this.synapse = synapse;
+    this.modelName = modelName;
 
     if (workDir) {
       if (!fsSync.existsSync(workDir)) {
@@ -45,20 +55,20 @@ export class Embeddings {
     console.log(`[Embeddings][${timestamp}] ${message}`);
   }
 
-  private async initializeOpenAI(): Promise<void> {
-    if (!this.openai) {
-      this.log("Initializing OpenAI client...");
+  private async initializeEmbeddingModel(): Promise<void> {
+    if (!this.embeddingPipeline) {
+      this.log(`Initializing offline embedding model: ${this.modelName}...`);
       try {
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-          throw new Error("OPENAI_API_KEY environment variable is required");
-        }
-        this.openai = new OpenAI({
-          apiKey: apiKey,
-        });
-        this.log("OpenAI client initialized successfully");
+        this.embeddingPipeline = await pipeline(
+          "feature-extraction",
+          this.modelName,
+          {
+            dtype: "q4", // Use 4-bit quantization for better performance
+          },
+        );
+        this.log("Embedding model initialized successfully");
       } catch (error) {
-        this.log(`Error initializing OpenAI client: ${error}`);
+        this.log(`Error initializing embedding model: ${error}`);
         throw error;
       }
     }
@@ -102,7 +112,6 @@ export class Embeddings {
           const fullPath = path.join(dir, entry.name);
 
           if (entry.isDirectory()) {
-            // Skip node_modules, .git, and other common non-source directories
             if (
               ![
                 "node_modules",
@@ -112,6 +121,8 @@ export class Embeddings {
                 "coverage",
                 ".next",
                 "tmp",
+                ".cache",
+                "huggingface_hub",
               ].includes(entry.name)
             ) {
               traverseDirectory(fullPath);
@@ -135,7 +146,8 @@ export class Embeddings {
   private readFileContent(filePath: string): string {
     try {
       const content = fsSync.readFileSync(filePath, "utf-8");
-      // Limit file size to avoid overwhelming the model (max ~7000 chars to stay under 8192 tokens)
+
+      // Limit file size for embedding model processing
       return content.length > 7000
         ? content.substring(0, 7000) + "..."
         : content;
@@ -152,10 +164,20 @@ export class Embeddings {
     return dotProduct / (magnitudeA * magnitudeB);
   }
 
+  private async generateEmbedding(text: string): Promise<number[]> {
+    const output = await this.embeddingPipeline(text, {
+      pooling: "mean",
+      normalize: true,
+    });
+
+    // Convert tensor to array if needed
+    return Array.from(output.data);
+  }
+
   public async generateEmbeddings(): Promise<EmbeddingResult> {
     this.log("Starting embedding generation for codebase...");
 
-    await this.initializeOpenAI();
+    await this.initializeEmbeddingModel();
 
     const files = this.getCodeFiles(this.workDir);
     this.log(`Found ${files.length} code files to process`);
@@ -179,16 +201,12 @@ export class Embeddings {
         // Create a document string that includes file path context
         const documentText = `File: ${relativePath}\n\n${content}`;
 
-        const response = await this.openai!.embeddings.create({
-          model: "text-embedding-3-small",
-          input: documentText,
-          encoding_format: "float",
-        });
+        const embedding = await this.generateEmbedding(documentText);
 
         this.embeddings.push({
           filePath: relativePath,
           content: content,
-          embedding: response.data[0].embedding,
+          embedding: embedding,
           size: content.length,
         });
 
@@ -227,18 +245,13 @@ export class Embeddings {
       };
     }
 
-    await this.initializeOpenAI();
+    await this.initializeEmbeddingModel();
 
     this.log(`Searching for documents relevant to: "${query}"`);
 
     try {
       // Generate embedding for the query
-      const response = await this.openai!.embeddings.create({
-        model: "text-embedding-3-small",
-        input: query,
-        encoding_format: "float",
-      });
-      const queryVector = response.data[0].embedding;
+      const queryVector = await this.generateEmbedding(query);
 
       // Calculate similarities
       const similarities = this.embeddings.map((doc) => ({

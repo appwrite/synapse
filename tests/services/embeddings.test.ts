@@ -1,18 +1,28 @@
 import * as fsSync from "fs";
-import OpenAI from "openai";
 import * as path from "path";
 import { Embeddings } from "../../src/services/embeddings";
 import { Synapse } from "../../src/synapse";
 
+// Mock @huggingface/transformers
+jest.mock("@huggingface/transformers", () => ({
+  env: {
+    allowRemoteModels: false,
+    allowLocalModels: true,
+  },
+  pipeline: jest.fn(),
+}));
+
 jest.mock("fs");
-jest.mock("openai");
 jest.mock("path");
+
+// Import the mocked module
+import { pipeline } from "@huggingface/transformers";
 
 describe("Embeddings", () => {
   let embeddings: Embeddings;
   let mockSynapse: Synapse;
-  let mockOpenAI: jest.Mocked<OpenAI>;
-  let mockEmbeddings: jest.Mocked<OpenAI["embeddings"]>;
+  let mockPipeline: jest.MockedFunction<typeof pipeline>;
+  let mockEmbeddingFunction: jest.Mock;
 
   const mockWorkDir = "/test/workspace";
 
@@ -20,6 +30,15 @@ describe("Embeddings", () => {
     jest.clearAllMocks();
 
     mockSynapse = new Synapse();
+
+    // Mock embedding function that the pipeline returns
+    mockEmbeddingFunction = jest.fn().mockResolvedValue({
+      data: new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5]),
+    });
+
+    // Mock the pipeline function
+    mockPipeline = pipeline as jest.MockedFunction<typeof pipeline>;
+    mockPipeline.mockResolvedValue(mockEmbeddingFunction as any);
 
     // Mock fs operations
     (fsSync.existsSync as jest.Mock).mockReturnValue(true);
@@ -67,27 +86,7 @@ describe("Embeddings", () => {
       return ext ? `.${ext}` : "";
     });
 
-    // Mock OpenAI
-    mockEmbeddings = {
-      create: jest.fn(),
-    } as any;
-
-    mockOpenAI = {
-      embeddings: mockEmbeddings,
-    } as any;
-
-    (OpenAI as jest.MockedClass<typeof OpenAI>).mockImplementation(
-      () => mockOpenAI,
-    );
-
-    // Set environment variable
-    process.env.OPENAI_API_KEY = "test-api-key";
-
     embeddings = new Embeddings(mockSynapse, mockWorkDir);
-  });
-
-  afterEach(() => {
-    delete process.env.OPENAI_API_KEY;
   });
 
   describe("initialization", () => {
@@ -108,15 +107,19 @@ describe("Embeddings", () => {
         recursive: true,
       });
     });
+
+    it("should initialize with custom model name", () => {
+      const customModel = "Xenova/all-mpnet-base-v2";
+      const customEmbeddings = new Embeddings(
+        mockSynapse,
+        mockWorkDir,
+        customModel,
+      );
+      expect(customEmbeddings).toBeInstanceOf(Embeddings);
+    });
   });
 
   describe("generateEmbeddings", () => {
-    beforeEach(() => {
-      mockEmbeddings.create.mockResolvedValue({
-        data: [{ embedding: [0.1, 0.2, 0.3, 0.4, 0.5] }],
-      } as any);
-    });
-
     it("should successfully generate embeddings for code files", async () => {
       const result = await embeddings.generateEmbeddings();
 
@@ -124,14 +127,19 @@ describe("Embeddings", () => {
       expect(result.message).toContain(
         "Successfully generated embeddings for 3 files",
       );
-      expect(mockEmbeddings.create).toHaveBeenCalledTimes(3);
+      expect(mockPipeline).toHaveBeenCalledWith(
+        "feature-extraction",
+        "Xenova/all-MiniLM-L6-v2",
+        { dtype: "q4" },
+      );
+      expect(mockEmbeddingFunction).toHaveBeenCalledTimes(3);
     });
 
-    it("should throw error when OpenAI API key is missing", async () => {
-      delete process.env.OPENAI_API_KEY;
+    it("should handle embedding model initialization errors", async () => {
+      mockPipeline.mockRejectedValue(new Error("Model initialization error"));
 
       await expect(embeddings.generateEmbeddings()).rejects.toThrow(
-        "OPENAI_API_KEY environment variable is required",
+        "Model initialization error",
       );
     });
 
@@ -143,11 +151,13 @@ describe("Embeddings", () => {
       const result = await embeddings.generateEmbeddings();
 
       expect(result.success).toBe(true); // Should still succeed with processed files
-      expect(mockEmbeddings.create).toHaveBeenCalledTimes(0); // No files processed due to read errors
+      expect(mockEmbeddingFunction).toHaveBeenCalledTimes(0); // No files processed due to read errors
     });
 
-    it("should handle OpenAI API errors", async () => {
-      mockEmbeddings.create.mockRejectedValue(new Error("API Error"));
+    it("should handle embedding generation errors", async () => {
+      mockEmbeddingFunction.mockRejectedValue(
+        new Error("Embedding generation error"),
+      );
 
       const result = await embeddings.generateEmbeddings();
 
@@ -161,7 +171,7 @@ describe("Embeddings", () => {
       const result = await embeddings.generateEmbeddings();
 
       expect(result.success).toBe(true);
-      expect(mockEmbeddings.create).toHaveBeenCalledTimes(0);
+      expect(mockEmbeddingFunction).toHaveBeenCalledTimes(0);
     });
 
     it("should truncate large files", async () => {
@@ -170,27 +180,38 @@ describe("Embeddings", () => {
 
       await embeddings.generateEmbeddings();
 
-      const callArgs = mockEmbeddings.create.mock.calls[0][0];
-      expect(callArgs.input).toContain("...");
-      expect(callArgs.input.length).toBeLessThan(largeContent.length + 100); // Account for file path prefix
+      const callArgs = mockEmbeddingFunction.mock.calls[0][0];
+      expect(callArgs).toContain("...");
+      expect(callArgs.length).toBeLessThan(largeContent.length + 100); // Account for file path prefix
+    });
+
+    it("should include file path context in document text", async () => {
+      await embeddings.generateEmbeddings();
+
+      const callArgs = mockEmbeddingFunction.mock.calls[0][0];
+      expect(callArgs).toMatch(/^File: .*\n\n/);
+    });
+
+    it("should initialize embedding model only once", async () => {
+      await embeddings.generateEmbeddings();
+      await embeddings.generateEmbeddings();
+
+      // Pipeline should only be called once even though generateEmbeddings was called twice
+      expect(mockPipeline).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("findRelevantDocuments", () => {
     beforeEach(async () => {
       // Generate some embeddings first
-      mockEmbeddings.create.mockResolvedValue({
-        data: [{ embedding: [0.1, 0.2, 0.3, 0.4, 0.5] }],
-      } as any);
-
       await embeddings.generateEmbeddings();
     });
 
     it("should find relevant documents", async () => {
       // Mock query embedding
-      mockEmbeddings.create.mockResolvedValue({
-        data: [{ embedding: [0.1, 0.2, 0.3, 0.4, 0.5] }],
-      } as any);
+      mockEmbeddingFunction.mockResolvedValue({
+        data: new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5]),
+      });
 
       const result = await embeddings.findRelevantDocuments("test query");
 
@@ -202,9 +223,9 @@ describe("Embeddings", () => {
     });
 
     it("should limit results to specified number", async () => {
-      mockEmbeddings.create.mockResolvedValue({
-        data: [{ embedding: [0.1, 0.2, 0.3, 0.4, 0.5] }],
-      } as any);
+      mockEmbeddingFunction.mockResolvedValue({
+        data: new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5]),
+      });
 
       const result = await embeddings.findRelevantDocuments("test query", 2);
 
@@ -219,15 +240,17 @@ describe("Embeddings", () => {
 
       expect(result.success).toBe(false);
       expect(result.data).toHaveLength(0);
+      expect(result.message).toContain("No embeddings available");
     });
 
-    it("should handle OpenAI API errors during search", async () => {
-      mockEmbeddings.create.mockRejectedValue(new Error("API Error"));
+    it("should handle embedding generation errors during search", async () => {
+      mockEmbeddingFunction.mockRejectedValue(new Error("Embedding error"));
 
       const result = await embeddings.findRelevantDocuments("test query");
 
       expect(result.success).toBe(false);
       expect(result.data).toHaveLength(0);
+      expect(result.message).toContain("Error finding relevant documents");
     });
 
     it("should sort results by similarity", async () => {
@@ -235,23 +258,23 @@ describe("Embeddings", () => {
       const newEmbeddings = new Embeddings(mockSynapse, mockWorkDir);
 
       // Mock different embeddings for each file with more distinct vectors
-      mockEmbeddings.create
+      mockEmbeddingFunction
         .mockResolvedValueOnce({
-          data: [{ embedding: [1, 0, 0, 0, 0] }],
-        } as any) // Most similar to query
+          data: new Float32Array([1, 0, 0, 0, 0]),
+        }) // Most similar to query
         .mockResolvedValueOnce({
-          data: [{ embedding: [0, 1, 0, 0, 0] }],
-        } as any) // Less similar
+          data: new Float32Array([0, 1, 0, 0, 0]),
+        }) // Less similar
         .mockResolvedValueOnce({
-          data: [{ embedding: [0, 0, 0, 0, 1] }],
-        } as any); // Least similar
+          data: new Float32Array([0, 0, 0, 0, 1]),
+        }); // Least similar
 
       await newEmbeddings.generateEmbeddings();
 
       // Mock query embedding that's closest to the first file
-      mockEmbeddings.create.mockResolvedValue({
-        data: [{ embedding: [0.9, 0.1, 0, 0, 0] }],
-      } as any);
+      mockEmbeddingFunction.mockResolvedValue({
+        data: new Float32Array([0.9, 0.1, 0, 0, 0]),
+      });
 
       const result = await newEmbeddings.findRelevantDocuments("test query");
 
@@ -265,6 +288,15 @@ describe("Embeddings", () => {
         result.data[2].similarity,
       );
     });
+
+    it("should use pooling and normalize options when generating embeddings", async () => {
+      await embeddings.findRelevantDocuments("test query");
+
+      expect(mockEmbeddingFunction).toHaveBeenCalledWith("test query", {
+        pooling: "mean",
+        normalize: true,
+      });
+    });
   });
 
   describe("getEmbeddingsStats", () => {
@@ -276,10 +308,6 @@ describe("Embeddings", () => {
     });
 
     it("should return correct stats after generating embeddings", async () => {
-      mockEmbeddings.create.mockResolvedValue({
-        data: [{ embedding: [0.1, 0.2, 0.3, 0.4, 0.5] }],
-      } as any);
-
       await embeddings.generateEmbeddings();
       const stats = embeddings.getEmbeddingsStats();
 
@@ -294,7 +322,7 @@ describe("Embeddings", () => {
       const testEmbeddings = new Embeddings(mockSynapse, mockWorkDir);
 
       // Reset the mock for this specific test
-      mockEmbeddings.create.mockClear();
+      mockEmbeddingFunction.mockClear();
 
       (fsSync.readdirSync as jest.Mock).mockImplementation((dir: string) => {
         if (dir === mockWorkDir) {
@@ -316,14 +344,10 @@ describe("Embeddings", () => {
         },
       );
 
-      mockEmbeddings.create.mockResolvedValue({
-        data: [{ embedding: [0.1, 0.2, 0.3, 0.4, 0.5] }],
-      } as any);
-
       const result = await testEmbeddings.generateEmbeddings();
 
       expect(result.success).toBe(true);
-      expect(mockEmbeddings.create).toHaveBeenCalledTimes(2); // Only .ts and .md files
+      expect(mockEmbeddingFunction).toHaveBeenCalledTimes(2); // Only .ts and .md files
     });
 
     it("should skip excluded directories", async () => {
@@ -331,7 +355,7 @@ describe("Embeddings", () => {
       const testEmbeddings = new Embeddings(mockSynapse, mockWorkDir);
 
       // Reset the mock for this specific test
-      mockEmbeddings.create.mockClear();
+      mockEmbeddingFunction.mockClear();
 
       (fsSync.readdirSync as jest.Mock).mockImplementation((dir: string) => {
         if (dir === mockWorkDir) {
@@ -362,14 +386,47 @@ describe("Embeddings", () => {
         },
       );
 
-      mockEmbeddings.create.mockResolvedValue({
-        data: [{ embedding: [0.1, 0.2, 0.3, 0.4, 0.5] }],
-      } as any);
+      const result = await testEmbeddings.generateEmbeddings();
+
+      expect(result.success).toBe(true);
+      expect(mockEmbeddingFunction).toHaveBeenCalledTimes(1); // Only src/index.ts
+    });
+
+    it("should include huggingface_hub in excluded directories", async () => {
+      const testEmbeddings = new Embeddings(mockSynapse, mockWorkDir);
+      mockEmbeddingFunction.mockClear();
+
+      (fsSync.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+        if (dir === mockWorkDir) {
+          return [
+            { name: "src", isDirectory: () => true, isFile: () => false },
+            {
+              name: "huggingface_hub",
+              isDirectory: () => true,
+              isFile: () => false,
+            },
+          ];
+        }
+        if (dir.endsWith("src")) {
+          return [
+            { name: "index.ts", isDirectory: () => false, isFile: () => true },
+          ];
+        }
+        return [];
+      });
+
+      (fsSync.readFileSync as jest.Mock).mockImplementation(
+        (filePath: string) => {
+          if (filePath.includes("index.ts"))
+            return "export const main = () => {};";
+          return "";
+        },
+      );
 
       const result = await testEmbeddings.generateEmbeddings();
 
       expect(result.success).toBe(true);
-      expect(mockEmbeddings.create).toHaveBeenCalledTimes(1); // Only src/index.ts
+      expect(mockEmbeddingFunction).toHaveBeenCalledTimes(1); // Only src/index.ts, huggingface_hub excluded
     });
   });
 });

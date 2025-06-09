@@ -21,6 +21,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@huggingface/transformers": "^3.5.2",
     "archiver": "^7.0.1",
     "chokidar": "^4.0.3",
     "eslint": "^9.27.0",
@@ -28,7 +29,6 @@
     "mime-types": "^3.0.1",
     "node-appwrite": "17.0.0",
     "node-pty": "^1.0.0",
-    "openai": "^5.1.1",
     "prettier": "^3.5.3",
     "ws": "^8.18.2"
   },
