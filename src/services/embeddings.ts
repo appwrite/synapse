@@ -168,6 +168,7 @@ export class Embeddings {
   }
 
   public async generateEmbeddings(): Promise<EmbeddingResult> {
+    const startTime = performance.now();
     this.log("Starting embedding generation for codebase...");
 
     await this.initializeEmbeddingModel();
@@ -210,15 +211,19 @@ export class Embeddings {
       }
     }
 
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+    const durationSeconds = (duration / 1000).toFixed(2);
+
     this.log(
-      `Embedding generation completed. Generated embeddings for ${this.embeddings.length} files.`,
+      `Embedding generation completed in ${durationSeconds}s. Generated embeddings for ${this.embeddings.length} files.`,
     );
 
     return {
       success: success,
       message: success
-        ? `Successfully generated embeddings for ${this.embeddings.length} files.`
-        : `Failed to generate embeddings for some files.`,
+        ? `Successfully generated embeddings for ${this.embeddings.length} files in ${durationSeconds}s.`
+        : `Failed to generate embeddings for some files. Duration: ${durationSeconds}s.`,
     };
   }
 
