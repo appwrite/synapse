@@ -130,7 +130,6 @@ describe("Embeddings", () => {
       expect(mockPipeline).toHaveBeenCalledWith(
         "feature-extraction",
         "jinaai/jina-embeddings-v2-base-code",
-        { dtype: "q4" },
       );
       expect(mockEmbeddingFunction).toHaveBeenCalledTimes(3);
     });

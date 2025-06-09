@@ -58,9 +58,6 @@ export class Embeddings {
         this.embeddingPipeline = await pipeline(
           "feature-extraction",
           this.modelName,
-          {
-            dtype: "q4", // Use 4-bit quantization for better performance
-          },
         );
         this.log("Embedding model initialized successfully");
       } catch (error) {
