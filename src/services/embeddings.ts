@@ -1,4 +1,5 @@
 import * as fsSync from "fs";
+import OpenAI from "openai";
 import * as path from "path";
 import { Synapse } from "../synapse";
 
@@ -19,7 +20,7 @@ export class Embeddings {
   private synapse: Synapse;
   private workDir: string;
   private embeddings: DocumentEmbedding[] = [];
-  private extractor: any = null;
+  private openai: OpenAI | null = null;
 
   constructor(synapse: Synapse, workDir: string) {
     this.synapse = synapse;
@@ -39,24 +40,20 @@ export class Embeddings {
     console.log(`[Embeddings][${timestamp}] ${message}`);
   }
 
-  private async initializeExtractor(): Promise<void> {
-    if (!this.extractor) {
-      this.log("Initializing jina-embeddings-v2-base-code model...");
+  private async initializeOpenAI(): Promise<void> {
+    if (!this.openai) {
+      this.log("Initializing OpenAI client...");
       try {
-        const TransformersApi = Function(
-          "return import('@xenova/transformers')",
-        )();
-        const { pipeline } = await TransformersApi;
-        this.extractor = await pipeline(
-          "feature-extraction",
-          "jinaai/jina-embeddings-v2-base-code",
-          {
-            quantized: false,
-          },
-        );
-        this.log("Model initialized successfully");
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+          throw new Error("OPENAI_API_KEY environment variable is required");
+        }
+        this.openai = new OpenAI({
+          apiKey: apiKey,
+        });
+        this.log("OpenAI client initialized successfully");
       } catch (error) {
-        this.log(`Error initializing model: ${error}`);
+        this.log(`Error initializing OpenAI client: ${error}`);
         throw error;
       }
     }
@@ -153,7 +150,7 @@ export class Embeddings {
   public async generateEmbeddings(): Promise<void> {
     this.log("Starting embedding generation for codebase...");
 
-    await this.initializeExtractor();
+    await this.initializeOpenAI();
 
     const files = this.getCodeFiles(this.workDir);
     this.log(`Found ${files.length} code files to process`);
@@ -176,14 +173,16 @@ export class Embeddings {
         // Create a document string that includes file path context
         const documentText = `File: ${relativePath}\n\n${content}`;
 
-        const embedding = await this.extractor(documentText, {
-          pooling: "mean",
+        const response = await this.openai!.embeddings.create({
+          model: "text-embedding-3-small",
+          input: documentText,
+          encoding_format: "float",
         });
 
         this.embeddings.push({
           filePath: relativePath,
           content: content,
-          embedding: Array.from(embedding.data as number[]),
+          embedding: response.data[0].embedding,
           size: content.length,
         });
 
@@ -209,14 +208,18 @@ export class Embeddings {
       return [];
     }
 
-    await this.initializeExtractor();
+    await this.initializeOpenAI();
 
     this.log(`Searching for documents relevant to: "${query}"`);
 
     try {
       // Generate embedding for the query
-      const queryEmbedding = await this.extractor(query, { pooling: "mean" });
-      const queryVector = Array.from(queryEmbedding.data as number[]);
+      const response = await this.openai!.embeddings.create({
+        model: "text-embedding-3-small",
+        input: query,
+        encoding_format: "float",
+      });
+      const queryVector = response.data[0].embedding;
 
       // Calculate similarities
       const similarities = this.embeddings.map((doc) => ({
