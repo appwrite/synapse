@@ -1,11 +1,7 @@
-import { env, pipeline } from "@huggingface/transformers";
+import { pipeline } from "@huggingface/transformers";
 import * as fsSync from "fs";
 import * as path from "path";
 import { Synapse } from "../synapse";
-
-// Disable remote models and use local cache
-env.allowRemoteModels = false;
-env.allowLocalModels = true;
 
 export type EmbeddingResult = {
   success: boolean;
