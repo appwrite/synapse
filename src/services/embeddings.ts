@@ -27,6 +27,7 @@ export class Embeddings {
   private embeddings: DocumentEmbedding[] = [];
   private embeddingPipeline: any = null;
   private modelName: string;
+  private gitignorePatterns: string[] | null = null;
 
   constructor(
     synapse: Synapse,
@@ -49,6 +50,80 @@ export class Embeddings {
   private log(message: string): void {
     const timestamp = new Date().toISOString();
     console.log(`[Embeddings][${timestamp}] ${message}`);
+  }
+
+  private parseGitignore(): string[] {
+    if (this.gitignorePatterns !== null) {
+      return this.gitignorePatterns;
+    }
+
+    const gitignorePath = path.join(this.workDir, ".gitignore");
+    const patterns: string[] = [];
+
+    try {
+      if (fsSync.existsSync(gitignorePath)) {
+        const content = fsSync.readFileSync(gitignorePath, "utf-8");
+        const lines = content.split("\n");
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed && !trimmed.startsWith("#")) {
+            let pattern = trimmed.replace(/\/$/, "").replace(/\*$/, "");
+            if (pattern) {
+              patterns.push(pattern);
+            }
+          }
+        }
+
+        this.log(`Loaded ${patterns.length} patterns from .gitignore`);
+      }
+    } catch (error) {
+      this.log(`Error reading .gitignore: ${error}`);
+    }
+
+    this.gitignorePatterns = patterns;
+    return patterns;
+  }
+
+  private shouldIgnoreDirectory(dirName: string, fullPath: string): boolean {
+    const hardcodedIgnore = [
+      "node_modules",
+      ".git",
+      "dist",
+      "build",
+      "coverage",
+      ".next",
+      "tmp",
+      ".cache",
+      "huggingface_hub",
+      "helpers",
+    ];
+
+    if (hardcodedIgnore.includes(dirName)) {
+      return true;
+    }
+
+    const gitignorePatterns = this.parseGitignore();
+
+    const relativePath = path.relative(this.workDir, fullPath);
+
+    for (const pattern of gitignorePatterns) {
+      if (
+        dirName === pattern ||
+        relativePath === pattern ||
+        relativePath.startsWith(pattern + "/") ||
+        relativePath.split("/").includes(pattern)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  public refreshGitignoreCache(): void {
+    this.gitignorePatterns = null;
+    this.log("Gitignore cache refreshed");
   }
 
   private async initializeEmbeddingModel(): Promise<void> {
@@ -105,19 +180,7 @@ export class Embeddings {
           const fullPath = path.join(dir, entry.name);
 
           if (entry.isDirectory()) {
-            if (
-              ![
-                "node_modules",
-                ".git",
-                "dist",
-                "build",
-                "coverage",
-                ".next",
-                "tmp",
-                ".cache",
-                "huggingface_hub",
-              ].includes(entry.name)
-            ) {
+            if (!this.shouldIgnoreDirectory(entry.name, fullPath)) {
               traverseDirectory(fullPath);
             }
           } else if (entry.isFile()) {
