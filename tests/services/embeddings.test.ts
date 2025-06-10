@@ -1,28 +1,48 @@
 import * as fsSync from "fs";
 import * as path from "path";
+import { EmbeddingAdapter } from "../../src/adapters/embeddings";
 import { Embeddings } from "../../src/services/embeddings";
 import { Synapse } from "../../src/synapse";
-
-// Mock @huggingface/transformers
-jest.mock("@huggingface/transformers", () => ({
-  env: {
-    allowRemoteModels: false,
-    allowLocalModels: true,
-  },
-  pipeline: jest.fn(),
-}));
 
 jest.mock("fs");
 jest.mock("path");
 
-// Import the mocked module
-import { pipeline } from "@huggingface/transformers";
+// Mock embedding adapter
+class MockEmbeddingAdapter extends EmbeddingAdapter {
+  private initialized: boolean = false;
+  private mockEmbeddingFunction: jest.Mock;
+
+  constructor(mockEmbeddingFunction: jest.Mock) {
+    super();
+    this.mockEmbeddingFunction = mockEmbeddingFunction;
+  }
+
+  async initialize(): Promise<void> {
+    this.initialized = true;
+  }
+
+  async generateEmbedding(text: string): Promise<number[]> {
+    if (!this.initialized) {
+      throw new Error("Adapter not initialized");
+    }
+    const result = await this.mockEmbeddingFunction(text);
+    return Array.from(result.data);
+  }
+
+  getName(): string {
+    return "MockEmbeddingAdapter";
+  }
+
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+}
 
 describe("Embeddings", () => {
   let embeddings: Embeddings;
   let mockSynapse: Synapse;
-  let mockPipeline: jest.MockedFunction<typeof pipeline>;
   let mockEmbeddingFunction: jest.Mock;
+  let mockAdapter: MockEmbeddingAdapter;
 
   const mockWorkDir = "/test/workspace";
 
@@ -31,14 +51,13 @@ describe("Embeddings", () => {
 
     mockSynapse = new Synapse();
 
-    // Mock embedding function that the pipeline returns
+    // Mock embedding function that returns embedding data
     mockEmbeddingFunction = jest.fn().mockResolvedValue({
       data: new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5]),
     });
 
-    // Mock the pipeline function
-    mockPipeline = pipeline as jest.MockedFunction<typeof pipeline>;
-    mockPipeline.mockResolvedValue(mockEmbeddingFunction as any);
+    // Create mock adapter
+    mockAdapter = new MockEmbeddingAdapter(mockEmbeddingFunction);
 
     // Mock fs operations
     (fsSync.existsSync as jest.Mock).mockReturnValue(true);
@@ -86,7 +105,7 @@ describe("Embeddings", () => {
       return ext ? `.${ext}` : "";
     });
 
-    embeddings = new Embeddings(mockSynapse, mockWorkDir);
+    embeddings = new Embeddings(mockSynapse, mockWorkDir, mockAdapter);
   });
 
   describe("initialization", () => {
@@ -96,24 +115,24 @@ describe("Embeddings", () => {
     });
 
     it("should use current working directory when no workDir provided", () => {
-      const embeddingsWithoutDir = new Embeddings(mockSynapse, "");
+      const embeddingsWithoutDir = new Embeddings(mockSynapse, "", mockAdapter);
       expect(embeddingsWithoutDir).toBeInstanceOf(Embeddings);
     });
 
     it("should create work directory if it doesn't exist", () => {
       (fsSync.existsSync as jest.Mock).mockReturnValue(false);
-      new Embeddings(mockSynapse, "/new/directory");
+      new Embeddings(mockSynapse, "/new/directory", mockAdapter);
       expect(fsSync.mkdirSync).toHaveBeenCalledWith("/new/directory", {
         recursive: true,
       });
     });
 
-    it("should initialize with custom model name", () => {
-      const customModel = "jinaai/jina-embeddings-v2-base-code";
+    it("should initialize with custom embedding adapter", () => {
+      const customAdapter = new MockEmbeddingAdapter(jest.fn());
       const customEmbeddings = new Embeddings(
         mockSynapse,
         mockWorkDir,
-        customModel,
+        customAdapter,
       );
       expect(customEmbeddings).toBeInstanceOf(Embeddings);
     });
@@ -127,18 +146,23 @@ describe("Embeddings", () => {
       expect(result.message).toContain(
         "Successfully generated embeddings for 3 files",
       );
-      expect(mockPipeline).toHaveBeenCalledWith(
-        "feature-extraction",
-        "jinaai/jina-embeddings-v2-base-code",
-      );
       expect(mockEmbeddingFunction).toHaveBeenCalledTimes(3);
     });
 
-    it("should handle embedding model initialization errors", async () => {
-      mockPipeline.mockRejectedValue(new Error("Model initialization error"));
+    it("should handle embedding adapter initialization errors", async () => {
+      const errorAdapter = new MockEmbeddingAdapter(mockEmbeddingFunction);
+      jest
+        .spyOn(errorAdapter, "initialize")
+        .mockRejectedValue(new Error("Adapter initialization error"));
 
-      await expect(embeddings.generateEmbeddings()).rejects.toThrow(
-        "Model initialization error",
+      const errorEmbeddings = new Embeddings(
+        mockSynapse,
+        mockWorkDir,
+        errorAdapter,
+      );
+
+      await expect(errorEmbeddings.generateEmbeddings()).rejects.toThrow(
+        "Adapter initialization error",
       );
     });
 
@@ -191,12 +215,14 @@ describe("Embeddings", () => {
       expect(callArgs).toMatch(/^File: .*\n\n/);
     });
 
-    it("should initialize embedding model only once", async () => {
+    it("should initialize embedding adapter only once", async () => {
+      const initializeSpy = jest.spyOn(mockAdapter, "initialize");
+
       await embeddings.generateEmbeddings();
       await embeddings.generateEmbeddings();
 
-      // Pipeline should only be called once even though generateEmbeddings was called twice
-      expect(mockPipeline).toHaveBeenCalledTimes(1);
+      // initialize should only be called once
+      expect(initializeSpy).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -233,7 +259,11 @@ describe("Embeddings", () => {
     });
 
     it("should return error when no embeddings available", async () => {
-      const newEmbeddings = new Embeddings(mockSynapse, mockWorkDir);
+      const newEmbeddings = new Embeddings(
+        mockSynapse,
+        mockWorkDir,
+        mockAdapter,
+      );
 
       const result = await newEmbeddings.findRelevantDocuments("test query");
 
@@ -254,10 +284,16 @@ describe("Embeddings", () => {
 
     it("should sort results by similarity", async () => {
       // Reset and create embeddings with different vectors that will have different similarities
-      const newEmbeddings = new Embeddings(mockSynapse, mockWorkDir);
+      const newMockFunction = jest.fn();
+      const newAdapter = new MockEmbeddingAdapter(newMockFunction);
+      const newEmbeddings = new Embeddings(
+        mockSynapse,
+        mockWorkDir,
+        newAdapter,
+      );
 
       // Mock different embeddings for each file with more distinct vectors
-      mockEmbeddingFunction
+      newMockFunction
         .mockResolvedValueOnce({
           data: new Float32Array([1, 0, 0, 0, 0]),
         }) // Most similar to query
@@ -271,7 +307,7 @@ describe("Embeddings", () => {
       await newEmbeddings.generateEmbeddings();
 
       // Mock query embedding that's closest to the first file
-      mockEmbeddingFunction.mockResolvedValue({
+      newMockFunction.mockResolvedValue({
         data: new Float32Array([0.9, 0.1, 0, 0, 0]),
       });
 
@@ -286,15 +322,6 @@ describe("Embeddings", () => {
       expect(result.data[1].similarity).toBeGreaterThan(
         result.data[2].similarity,
       );
-    });
-
-    it("should use pooling and normalize options when generating embeddings", async () => {
-      await embeddings.findRelevantDocuments("test query");
-
-      expect(mockEmbeddingFunction).toHaveBeenCalledWith("test query", {
-        pooling: "mean",
-        normalize: true,
-      });
     });
   });
 
@@ -318,10 +345,15 @@ describe("Embeddings", () => {
   describe("file filtering", () => {
     it("should only process supported code file extensions", async () => {
       // Create a fresh embeddings instance for this test
-      const testEmbeddings = new Embeddings(mockSynapse, mockWorkDir);
-
-      // Reset the mock for this specific test
-      mockEmbeddingFunction.mockClear();
+      const testMockFunction = jest.fn().mockResolvedValue({
+        data: new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5]),
+      });
+      const testAdapter = new MockEmbeddingAdapter(testMockFunction);
+      const testEmbeddings = new Embeddings(
+        mockSynapse,
+        mockWorkDir,
+        testAdapter,
+      );
 
       (fsSync.readdirSync as jest.Mock).mockImplementation((dir: string) => {
         if (dir === mockWorkDir) {
@@ -346,15 +378,20 @@ describe("Embeddings", () => {
       const result = await testEmbeddings.generateEmbeddings();
 
       expect(result.success).toBe(true);
-      expect(mockEmbeddingFunction).toHaveBeenCalledTimes(2); // Only .ts and .md files
+      expect(testMockFunction).toHaveBeenCalledTimes(2); // Only .ts and .md files
     });
 
     it("should skip excluded directories", async () => {
       // Create a fresh embeddings instance for this test
-      const testEmbeddings = new Embeddings(mockSynapse, mockWorkDir);
-
-      // Reset the mock for this specific test
-      mockEmbeddingFunction.mockClear();
+      const testMockFunction = jest.fn().mockResolvedValue({
+        data: new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5]),
+      });
+      const testAdapter = new MockEmbeddingAdapter(testMockFunction);
+      const testEmbeddings = new Embeddings(
+        mockSynapse,
+        mockWorkDir,
+        testAdapter,
+      );
 
       (fsSync.readdirSync as jest.Mock).mockImplementation((dir: string) => {
         if (dir === mockWorkDir) {
@@ -388,12 +425,19 @@ describe("Embeddings", () => {
       const result = await testEmbeddings.generateEmbeddings();
 
       expect(result.success).toBe(true);
-      expect(mockEmbeddingFunction).toHaveBeenCalledTimes(1); // Only src/index.ts
+      expect(testMockFunction).toHaveBeenCalledTimes(1); // Only src/index.ts
     });
 
     it("should include huggingface_hub in excluded directories", async () => {
-      const testEmbeddings = new Embeddings(mockSynapse, mockWorkDir);
-      mockEmbeddingFunction.mockClear();
+      const testMockFunction = jest.fn().mockResolvedValue({
+        data: new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5]),
+      });
+      const testAdapter = new MockEmbeddingAdapter(testMockFunction);
+      const testEmbeddings = new Embeddings(
+        mockSynapse,
+        mockWorkDir,
+        testAdapter,
+      );
 
       (fsSync.readdirSync as jest.Mock).mockImplementation((dir: string) => {
         if (dir === mockWorkDir) {
@@ -425,7 +469,7 @@ describe("Embeddings", () => {
       const result = await testEmbeddings.generateEmbeddings();
 
       expect(result.success).toBe(true);
-      expect(mockEmbeddingFunction).toHaveBeenCalledTimes(1); // Only src/index.ts, huggingface_hub excluded
+      expect(testMockFunction).toHaveBeenCalledTimes(1); // Only src/index.ts, huggingface_hub excluded
     });
   });
 });

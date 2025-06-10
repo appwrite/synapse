@@ -1,6 +1,6 @@
-import { pipeline } from "@huggingface/transformers";
 import * as fsSync from "fs";
 import * as path from "path";
+import { EmbeddingAdapter } from "../adapters/embeddings";
 import { Synapse } from "../synapse";
 
 export type EmbeddingResult = {
@@ -25,17 +25,16 @@ export class Embeddings {
   private synapse: Synapse;
   private workDir: string;
   private embeddings: DocumentEmbedding[] = [];
-  private embeddingPipeline: any = null;
-  private modelName: string;
+  private embeddingAdapter: EmbeddingAdapter;
   private gitignorePatterns: string[] | null = null;
 
   constructor(
     synapse: Synapse,
     workDir: string,
-    modelName: string = "jinaai/jina-embeddings-v2-base-code",
+    embeddingAdapter: EmbeddingAdapter,
   ) {
     this.synapse = synapse;
-    this.modelName = modelName;
+    this.embeddingAdapter = embeddingAdapter;
 
     if (workDir) {
       if (!fsSync.existsSync(workDir)) {
@@ -127,16 +126,15 @@ export class Embeddings {
   }
 
   private async initializeEmbeddingModel(): Promise<void> {
-    if (!this.embeddingPipeline) {
-      this.log(`Initializing offline embedding model: ${this.modelName}...`);
+    if (!this.embeddingAdapter.isInitialized()) {
+      this.log(
+        `Initializing embedding adapter: ${this.embeddingAdapter.getName()}...`,
+      );
       try {
-        this.embeddingPipeline = await pipeline(
-          "feature-extraction",
-          this.modelName,
-        );
-        this.log("Embedding model initialized successfully");
+        await this.embeddingAdapter.initialize();
+        this.log("Embedding adapter initialized successfully");
       } catch (error) {
-        this.log(`Error initializing embedding model: ${error}`);
+        this.log(`Error initializing embedding adapter: ${error}`);
         throw error;
       }
     }
@@ -221,13 +219,7 @@ export class Embeddings {
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
-    const output = await this.embeddingPipeline(text, {
-      pooling: "mean",
-      normalize: true,
-    });
-
-    // Convert tensor to array if needed
-    return Array.from(output.data);
+    return await this.embeddingAdapter.generateEmbedding(text);
   }
 
   public async generateEmbeddings(): Promise<EmbeddingResult> {
