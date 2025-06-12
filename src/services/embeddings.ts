@@ -1,4 +1,6 @@
+import * as chokidar from "chokidar";
 import * as fsSync from "fs";
+import * as fs from "fs/promises";
 import * as path from "path";
 import { EmbeddingAdapter } from "../adapters/embeddings";
 import { Synapse } from "../synapse";
@@ -24,9 +26,12 @@ export type RelevantDocument = {
 export class Embeddings {
   private synapse: Synapse;
   private workDir: string;
-  private embeddings: DocumentEmbedding[] = [];
+  private embeddings: Map<string, DocumentEmbedding> = new Map();
   private embeddingAdapter: EmbeddingAdapter;
   private gitignorePatterns: string[] | null = null;
+  private watcher: chokidar.FSWatcher | null = null;
+  private isWatching: boolean = false;
+  private processingQueue: Set<string> = new Set();
 
   constructor(
     synapse: Synapse,
@@ -84,7 +89,10 @@ export class Embeddings {
     return patterns;
   }
 
-  private shouldIgnoreDirectory(dirName: string, fullPath: string): boolean {
+  private shouldIgnoreFile(filePath: string): boolean {
+    const fileName = path.basename(filePath);
+    const relativePath = path.relative(this.workDir, filePath);
+
     const hardcodedIgnore = [
       "node_modules",
       ".git",
@@ -98,20 +106,22 @@ export class Embeddings {
       "helpers",
     ];
 
-    if (hardcodedIgnore.includes(dirName)) {
-      return true;
+    // Check if any part of the path contains ignored directories
+    const pathParts = relativePath.split(path.sep);
+    for (const part of pathParts) {
+      if (hardcodedIgnore.includes(part)) {
+        return true;
+      }
     }
 
     const gitignorePatterns = this.parseGitignore();
 
-    const relativePath = path.relative(this.workDir, fullPath);
-
     for (const pattern of gitignorePatterns) {
       if (
-        dirName === pattern ||
+        fileName === pattern ||
         relativePath === pattern ||
         relativePath.startsWith(pattern + "/") ||
-        relativePath.split("/").includes(pattern)
+        pathParts.includes(pattern)
       ) {
         return true;
       }
@@ -120,28 +130,7 @@ export class Embeddings {
     return false;
   }
 
-  public refreshGitignoreCache(): void {
-    this.gitignorePatterns = null;
-    this.log("Gitignore cache refreshed");
-  }
-
-  private async initializeEmbeddingModel(): Promise<void> {
-    if (!this.embeddingAdapter.isInitialized()) {
-      this.log(
-        `Initializing embedding adapter: ${this.embeddingAdapter.getName()}...`,
-      );
-      try {
-        await this.embeddingAdapter.initialize();
-        this.log("Embedding adapter initialized successfully");
-      } catch (error) {
-        this.log(`Error initializing embedding adapter: ${error}`);
-        throw error;
-      }
-    }
-  }
-
-  private getCodeFiles(directory: string): string[] {
-    const files: string[] = [];
+  private isCodeFile(filePath: string): boolean {
     const codeExtensions = [
       ".ts",
       ".js",
@@ -170,36 +159,33 @@ export class Embeddings {
       ".yml",
     ];
 
-    const traverseDirectory = (dir: string): void => {
-      try {
-        const entries = fsSync.readdirSync(dir, { withFileTypes: true });
-
-        for (const entry of entries) {
-          const fullPath = path.join(dir, entry.name);
-
-          if (entry.isDirectory()) {
-            if (!this.shouldIgnoreDirectory(entry.name, fullPath)) {
-              traverseDirectory(fullPath);
-            }
-          } else if (entry.isFile()) {
-            const ext = path.extname(entry.name);
-            if (codeExtensions.includes(ext)) {
-              files.push(fullPath);
-            }
-          }
-        }
-      } catch (error) {
-        this.log(`Error reading directory ${dir}: ${error}`);
-      }
-    };
-
-    traverseDirectory(directory);
-    return files;
+    const ext = path.extname(filePath);
+    return codeExtensions.includes(ext);
   }
 
-  private readFileContent(filePath: string): string {
+  public refreshGitignoreCache(): void {
+    this.gitignorePatterns = null;
+    this.log("Gitignore cache refreshed");
+  }
+
+  private async initializeEmbeddingModel(): Promise<void> {
+    if (!this.embeddingAdapter.isInitialized()) {
+      this.log(
+        `Initializing embedding adapter: ${this.embeddingAdapter.getName()}...`,
+      );
+      try {
+        await this.embeddingAdapter.initialize();
+        this.log("Embedding adapter initialized successfully");
+      } catch (error) {
+        this.log(`Error initializing embedding adapter: ${error}`);
+        throw error;
+      }
+    }
+  }
+
+  private async readFileContent(filePath: string): Promise<string> {
     try {
-      const content = fsSync.readFileSync(filePath, "utf-8");
+      const content = await fs.readFile(filePath, "utf-8");
 
       // Limit file size for embedding model processing
       return content.length > 7000
@@ -218,83 +204,187 @@ export class Embeddings {
     return dotProduct / (magnitudeA * magnitudeB);
   }
 
-  private async generateEmbedding(text: string): Promise<number[]> {
-    return await this.embeddingAdapter.generateEmbedding(text);
-  }
+  private async embedFile(filePath: string): Promise<void> {
+    const relativePath = path.relative(this.workDir, filePath);
 
-  public async generateEmbeddings(): Promise<EmbeddingResult> {
-    const startTime = performance.now();
-    this.log("Starting embedding generation for codebase...");
-
-    await this.initializeEmbeddingModel();
-
-    const files = this.getCodeFiles(this.workDir);
-    this.log(`Found ${files.length} code files to process`);
-
-    this.embeddings = [];
-    let success = true;
-
-    for (let i = 0; i < files.length; i++) {
-      const filePath = files[i];
-      const relativePath = path.relative(this.workDir, filePath);
-
-      try {
-        this.log(`Processing file ${i + 1}/${files.length}: ${relativePath}`);
-
-        const content = this.readFileContent(filePath);
-        if (!content.trim()) {
-          this.log(`Skipping empty file: ${relativePath}`);
-          continue;
-        }
-
-        // Create a document string that includes file path context
-        const documentText = `File: ${relativePath}\n\n${content}`;
-
-        const embedding = await this.generateEmbedding(documentText);
-
-        this.embeddings.push({
-          filePath: relativePath,
-          content: content,
-          embedding: embedding,
-          size: content.length,
-        });
-
-        this.log(`Successfully processed: ${relativePath}`);
-      } catch (error) {
-        this.log(`Error processing file ${relativePath}: ${error}`);
-        success = false;
-      }
+    // Prevent duplicate processing
+    if (this.processingQueue.has(relativePath)) {
+      return;
     }
 
-    const endTime = performance.now();
-    const duration = endTime - startTime;
-    const durationSeconds = (duration / 1000).toFixed(2);
+    this.processingQueue.add(relativePath);
 
-    this.log(
-      `Embedding generation completed in ${durationSeconds}s. Generated embeddings for ${this.embeddings.length} files.`,
-    );
+    try {
+      this.log(`Embedding file: ${relativePath}`);
 
-    return {
-      success: success,
-      message: success
-        ? `Successfully generated embeddings for ${this.embeddings.length} files in ${durationSeconds}s.`
-        : `Failed to generate embeddings for some files. Duration: ${durationSeconds}s.`,
+      const content = await this.readFileContent(filePath);
+      if (!content.trim()) {
+        this.log(`Skipping empty file: ${relativePath}`);
+        this.embeddings.delete(relativePath);
+        return;
+      }
+
+      // Create a document string that includes file path context
+      const documentText = `File: ${relativePath}\n\n${content}`;
+
+      const embedding =
+        await this.embeddingAdapter.generateEmbedding(documentText);
+
+      this.embeddings.set(relativePath, {
+        filePath: relativePath,
+        content: content,
+        embedding: embedding,
+        size: content.length,
+      });
+
+      this.log(`Successfully embedded: ${relativePath}`);
+    } catch (error) {
+      this.log(`Error embedding file ${relativePath}: ${error}`);
+    } finally {
+      this.processingQueue.delete(relativePath);
+    }
+  }
+
+  private async removeFileEmbedding(filePath: string): Promise<void> {
+    const relativePath = path.relative(this.workDir, filePath);
+
+    if (this.embeddings.has(relativePath)) {
+      this.embeddings.delete(relativePath);
+      this.log(`Removed embedding for deleted file: ${relativePath}`);
+    }
+  }
+
+  private async onFileChange(filePath: string): Promise<void> {
+    if (!this.isCodeFile(filePath) || this.shouldIgnoreFile(filePath)) {
+      return;
+    }
+
+    await this.embedFile(filePath);
+  }
+
+  private async onFileDelete(filePath: string): Promise<void> {
+    await this.removeFileEmbedding(filePath);
+  }
+
+  public async startWatching(): Promise<EmbeddingResult> {
+    if (this.isWatching) {
+      return {
+        success: true,
+        message: "File watcher is already running",
+      };
+    }
+
+    try {
+      await this.initializeEmbeddingModel();
+
+      this.log("Starting file watcher and initial embedding generation...");
+      const startTime = performance.now();
+
+      // Initial scan and embedding of existing files
+      await this.initialScan();
+
+      // Set up file watcher
+      this.watcher = chokidar.watch(this.workDir, {
+        ignored: [
+          "**/node_modules/**",
+          "**/.git/**",
+          "**/dist/**",
+          "**/build/**",
+          "**/coverage/**",
+          "**/.next/**",
+          "**/tmp/**",
+          "**/.cache/**",
+          "**/huggingface_hub/**",
+          "**/helpers/**",
+        ],
+        persistent: true,
+        ignoreInitial: true, // We already did initial scan
+      });
+
+      this.watcher
+        .on("add", (filePath) => this.onFileChange(filePath))
+        .on("change", (filePath) => this.onFileChange(filePath))
+        .on("unlink", (filePath) => this.onFileDelete(filePath));
+
+      this.isWatching = true;
+
+      const endTime = performance.now();
+      const duration = (endTime - startTime) / 1000;
+
+      this.log(
+        `File watcher started. Initial embedding completed in ${duration.toFixed(2)}s`,
+      );
+      this.log(`Watching ${this.embeddings.size} files for changes`);
+
+      return {
+        success: true,
+        message: `File watcher started successfully. Embedded ${this.embeddings.size} files in ${duration.toFixed(2)}s`,
+      };
+    } catch (error) {
+      this.log(`Error starting file watcher: ${error}`);
+      return {
+        success: false,
+        message: `Failed to start file watcher: ${error}`,
+      };
+    }
+  }
+
+  private async initialScan(): Promise<void> {
+    const files = this.getAllCodeFiles(this.workDir);
+    this.log(`Found ${files.length} code files for initial embedding`);
+
+    const embedPromises = files.map((filePath) => this.embedFile(filePath));
+    await Promise.all(embedPromises);
+  }
+
+  private getAllCodeFiles(directory: string): string[] {
+    const files: string[] = [];
+
+    const traverseDirectory = (dir: string): void => {
+      try {
+        const entries = fsSync.readdirSync(dir, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+
+          if (entry.isDirectory()) {
+            if (!this.shouldIgnoreFile(fullPath)) {
+              traverseDirectory(fullPath);
+            }
+          } else if (entry.isFile()) {
+            if (this.isCodeFile(fullPath) && !this.shouldIgnoreFile(fullPath)) {
+              files.push(fullPath);
+            }
+          }
+        }
+      } catch (error) {
+        this.log(`Error reading directory ${dir}: ${error}`);
+      }
     };
+
+    traverseDirectory(directory);
+    return files;
+  }
+
+  public async stopWatching(): Promise<void> {
+    if (this.watcher) {
+      await this.watcher.close();
+      this.watcher = null;
+      this.isWatching = false;
+      this.log("File watcher stopped");
+    }
   }
 
   public async findRelevantDocuments(
     query: string,
     limit: number = 5,
   ): Promise<{ success: boolean; data: RelevantDocument[]; message: string }> {
-    if (this.embeddings.length === 0) {
-      this.log(
-        "No embeddings available. Please run generateEmbeddings() first.",
-      );
+    if (this.embeddings.size === 0) {
+      this.log("No embeddings available. Please run startWatching() first.");
       return {
         success: false,
         data: [],
-        message:
-          "No embeddings available. Please run generateEmbeddings() first.",
+        message: "No embeddings available. Please run startWatching() first.",
       };
     }
 
@@ -304,10 +394,10 @@ export class Embeddings {
 
     try {
       // Generate embedding for the query
-      const queryVector = await this.generateEmbedding(query);
+      const queryVector = await this.embeddingAdapter.generateEmbedding(query);
 
       // Calculate similarities
-      const similarities = this.embeddings.map((doc) => ({
+      const similarities = Array.from(this.embeddings.values()).map((doc) => ({
         filePath: doc.filePath,
         content: doc.content,
         similarity: this.cosineSimilarity(queryVector, doc.embedding),
@@ -341,10 +431,22 @@ export class Embeddings {
   }
 
   public getEmbeddingsStats(): { totalFiles: number; totalSize: number } {
-    const totalSize = this.embeddings.reduce((sum, doc) => sum + doc.size, 0);
+    const embeddings = Array.from(this.embeddings.values());
+    const totalSize = embeddings.reduce((sum, doc) => sum + doc.size, 0);
     return {
-      totalFiles: this.embeddings.length,
+      totalFiles: embeddings.length,
       totalSize: totalSize,
     };
+  }
+
+  public isWatchingFiles(): boolean {
+    return this.isWatching;
+  }
+
+  // Cleanup method
+  public async dispose(): Promise<void> {
+    await this.stopWatching();
+    this.embeddings.clear();
+    this.processingQueue.clear();
   }
 }
