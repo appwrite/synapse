@@ -181,8 +181,8 @@ export class Embeddings {
 
   private async initializeEmbeddingModel(): Promise<void> {
     if (
-      !this.embeddingAdapter.isInitialized() ||
-      this.embeddingAdapter.isInitializing
+      !this.embeddingAdapter.isInitialized() &&
+      !this.embeddingAdapter.isInitializing
     ) {
       this.log(
         `Initializing embedding adapter: ${this.embeddingAdapter.getName()}...`,
