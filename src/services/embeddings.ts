@@ -402,12 +402,21 @@ export class Embeddings {
       };
     }
 
-    if (this.embeddings.size === 0) {
-      this.log("No embeddings available. Please run startWatching() first.");
+    if (!this.isWatching) {
       return {
         success: false,
         data: [],
-        message: "No embeddings available. Please run startWatching() first.",
+        message:
+          "No embeddings available. Please run startWatching() first or create some code files first.",
+      };
+    }
+
+    if (this.embeddings.size === 0) {
+      return {
+        success: false,
+        data: [],
+        message:
+          "No embeddings available yet. Try creating some code files first.",
       };
     }
 
