@@ -4,6 +4,7 @@ export interface EmbeddingConfig {
 
 export abstract class EmbeddingAdapter {
   protected config: EmbeddingConfig;
+  public isInitializing: boolean = false;
 
   constructor(config: EmbeddingConfig = {}) {
     this.config = config;

@@ -24,12 +24,14 @@ export class OpenAIEmbeddingAdapter extends EmbeddingAdapter {
 
   async initialize(): Promise<void> {
     console.log(`[OpenAI] Initializing with model: ${this.model}...`);
+    this.isInitializing = true;
     if (!this.apiKey.startsWith("sk-")) {
       console.warn(
         "[OpenAI] API key doesn't start with 'sk-', this might cause issues",
       );
     }
     this.initialized = true;
+    this.isInitializing = false;
     console.log("[OpenAI] Adapter initialized successfully");
   }
 
@@ -37,6 +39,12 @@ export class OpenAIEmbeddingAdapter extends EmbeddingAdapter {
     if (!this.initialized) {
       throw new Error(
         "OpenAI adapter not initialized. Call initialize() first.",
+      );
+    }
+
+    if (this.isInitializing) {
+      throw new Error(
+        "OpenAI adapter is initializing. Please wait a moment and try again.",
       );
     }
 

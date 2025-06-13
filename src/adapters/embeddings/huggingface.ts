@@ -24,7 +24,8 @@ export class HuggingFaceEmbeddingAdapter extends EmbeddingAdapter {
   }
 
   async initialize(): Promise<void> {
-    if (!this.pipeline) {
+    if (!this.pipeline && !this.isInitializing) {
+      this.isInitializing = true;
       console.log(`[HuggingFace] Initializing model: ${this.modelName}...`);
       try {
         this.pipeline = await pipeline("feature-extraction", this.modelName);
@@ -34,6 +35,7 @@ export class HuggingFaceEmbeddingAdapter extends EmbeddingAdapter {
         throw error;
       }
     }
+    this.isInitializing = false;
   }
 
   async generateEmbedding(text: string): Promise<number[]> {

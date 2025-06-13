@@ -390,6 +390,15 @@ export class Embeddings {
     query: string,
     limit: number = 5,
   ): Promise<{ success: boolean; data: RelevantDocument[]; message: string }> {
+    if (this.embeddingAdapter.isInitializing) {
+      return {
+        success: false,
+        data: [],
+        message:
+          "Embedding adapter is initializing. Please wait a moment and try again.",
+      };
+    }
+
     if (this.embeddings.size === 0) {
       this.log("No embeddings available. Please run startWatching() first.");
       return {
@@ -458,5 +467,6 @@ export class Embeddings {
     await this.stopWatching();
     this.embeddings.clear();
     this.processingQueue.clear();
+    this.embeddingAdapter.cleanup();
   }
 }
