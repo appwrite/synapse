@@ -443,7 +443,6 @@ export class Embeddings {
     return this.isWatching;
   }
 
-  // Cleanup method
   public async dispose(): Promise<void> {
     await this.stopWatching();
     this.embeddings.clear();
