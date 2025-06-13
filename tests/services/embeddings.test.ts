@@ -171,13 +171,13 @@ describe("Embeddings", () => {
     });
   });
 
-  describe("findRelevantDocuments", () => {
+  describe("findDocuments", () => {
     beforeEach(async () => {
       await embeddings.startWatching();
     });
 
     it("should find relevant documents", async () => {
-      const result = await embeddings.findRelevantDocuments("test query");
+      const result = await embeddings.findDocuments("test query");
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2);
@@ -185,7 +185,7 @@ describe("Embeddings", () => {
     });
 
     it("should limit results", async () => {
-      const result = await embeddings.findRelevantDocuments("test query", 1);
+      const result = await embeddings.findDocuments("test query", 1);
 
       expect(result.data).toHaveLength(1);
     });
@@ -196,7 +196,7 @@ describe("Embeddings", () => {
         mockWorkDir,
         mockAdapter,
       );
-      const result = await newEmbeddings.findRelevantDocuments("test query");
+      const result = await newEmbeddings.findDocuments("test query");
 
       expect(result.success).toBe(false);
       expect(result.message).toContain("No embeddings available");
@@ -205,7 +205,7 @@ describe("Embeddings", () => {
     it("should handle search errors", async () => {
       mockEmbeddingFunction.mockRejectedValue(new Error("Search error"));
 
-      const result = await embeddings.findRelevantDocuments("test query");
+      const result = await embeddings.findDocuments("test query");
 
       expect(result.success).toBe(false);
     });
@@ -252,10 +252,10 @@ describe("Embeddings", () => {
 
   describe("utility methods", () => {
     it("should return correct stats", async () => {
-      expect(embeddings.getEmbeddingsStats().totalFiles).toBe(0);
+      expect(embeddings.getStats().totalFiles).toBe(0);
 
       await embeddings.startWatching();
-      const stats = embeddings.getEmbeddingsStats();
+      const stats = embeddings.getStats();
 
       expect(stats.totalFiles).toBeGreaterThan(0);
       expect(stats.totalSize).toBeGreaterThan(0);
@@ -273,7 +273,7 @@ describe("Embeddings", () => {
       await embeddings.dispose();
 
       expect(embeddings.isWatchingFiles()).toBe(false);
-      expect(embeddings.getEmbeddingsStats().totalFiles).toBe(0);
+      expect(embeddings.getStats().totalFiles).toBe(0);
     });
   });
 });

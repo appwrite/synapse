@@ -375,7 +375,7 @@ export class Embeddings {
     }
   }
 
-  public async findRelevantDocuments(
+  public async findDocuments(
     query: string,
     limit: number = 5,
   ): Promise<{ success: boolean; data: RelevantDocument[]; message: string }> {
@@ -430,7 +430,7 @@ export class Embeddings {
     }
   }
 
-  public getEmbeddingsStats(): { totalFiles: number; totalSize: number } {
+  public getStats(): { totalFiles: number; totalSize: number } {
     const embeddings = Array.from(this.embeddings.values());
     const totalSize = embeddings.reduce((sum, doc) => sum + doc.size, 0);
     return {
