@@ -51,6 +51,17 @@ export class Embeddings {
     }
   }
 
+  /**
+   * Updates the working directory
+   * @param workDir - The new working directory
+   */
+  updateWorkDir(workDir: string): void {
+    if (!fsSync.existsSync(workDir)) {
+      fsSync.mkdirSync(workDir, { recursive: true });
+    }
+    this.workDir = workDir;
+  }
+
   private log(message: string): void {
     const timestamp = new Date().toISOString();
     console.log(`[Embeddings][${timestamp}] ${message}`);
