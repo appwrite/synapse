@@ -108,6 +108,10 @@ export class Filesystem {
     filePath: string,
     content: string = "",
   ): Promise<FileOperationResult> {
+    if (!filePath) {
+      return { success: false, error: "filePath is required" };
+    }
+
     const fullPath = this.resolvePath(filePath);
 
     try {
@@ -166,6 +170,10 @@ export class Filesystem {
    * @throws Error if file reading fails
    */
   async getFile(filePath: string): Promise<FileContent> {
+    if (!filePath) {
+      return { success: false, error: "filePath is required" };
+    }
+
     try {
       const fullPath = this.resolvePath(filePath);
 
@@ -201,6 +209,10 @@ export class Filesystem {
     filePath: string,
     content: string,
   ): Promise<FileOperationResult> {
+    if (!filePath) {
+      return { success: false, error: "filePath is required" };
+    }
+
     try {
       this.log(`Updating file at path: ${filePath}`);
       const fullPath = this.resolvePath(filePath);
@@ -232,6 +244,10 @@ export class Filesystem {
     filePath: string,
     content: string,
   ): Promise<FileOperationResult> {
+    if (!filePath) {
+      return { success: false, error: "filePath is required" };
+    }
+
     try {
       const fullPath = this.resolvePath(filePath);
       await fs.appendFile(fullPath, content);
@@ -258,6 +274,10 @@ export class Filesystem {
     oldPath: string,
     newPath: string,
   ): Promise<FileOperationResult> {
+    if (!oldPath || !newPath) {
+      return { success: false, error: "oldPath and newPath are required" };
+    }
+
     try {
       this.log(`Moving file from ${oldPath} to ${newPath}`);
       const fullOldPath = this.resolvePath(oldPath);
@@ -284,6 +304,10 @@ export class Filesystem {
    * @throws Error if file deletion fails
    */
   async deleteFile(filePath: string): Promise<FileOperationResult> {
+    if (!filePath) {
+      return { success: false, error: "filePath is required" };
+    }
+
     try {
       this.log(`Deleting file at path: ${filePath}`);
       const fullPath = this.resolvePath(filePath);
@@ -309,6 +333,10 @@ export class Filesystem {
    * @throws Error if directory creation fails
    */
   async createFolder(dirPath: string): Promise<FileOperationResult> {
+    if (!dirPath) {
+      return { success: false, error: "dirPath is required" };
+    }
+
     const fullPath = this.resolvePath(dirPath);
 
     if (dirPath === "." || dirPath === "" || dirPath === "/") {
@@ -340,6 +368,10 @@ export class Filesystem {
    * @throws Error if directory reading fails
    */
   async getFolder(dirPath: string): Promise<FileItemResult> {
+    if (!dirPath) {
+      return { success: false, error: "dirPath is required" };
+    }
+
     try {
       this.log(`Reading directory at path: ${dirPath}`);
       const fullPath = this.resolvePath(dirPath);
@@ -373,6 +405,10 @@ export class Filesystem {
     dirPath: string,
     name: string,
   ): Promise<FileOperationResult> {
+    if (!dirPath || !name) {
+      return { success: false, error: "dirPath and name are required" };
+    }
+
     try {
       this.log(`Renaming folder at ${dirPath} to ${name}`);
       const fullPath = this.resolvePath(dirPath);
@@ -405,6 +441,10 @@ export class Filesystem {
     oldPath: string,
     newPath: string,
   ): Promise<FileOperationResult> {
+    if (!oldPath || !newPath) {
+      return { success: false, error: "oldPath and newPath are required" };
+    }
+
     try {
       this.log(`Moving folder from ${oldPath} to ${newPath}`);
       const fullOldPath = this.resolvePath(oldPath);
@@ -431,6 +471,10 @@ export class Filesystem {
    * @throws Error if deletion fails
    */
   async deleteFolder(dirPath: string): Promise<FileOperationResult> {
+    if (!dirPath) {
+      return { success: false, error: "dirPath is required" };
+    }
+
     try {
       this.log(`Deleting folder at path: ${dirPath}`);
       const fullPath = this.resolvePath(dirPath);
@@ -569,7 +613,7 @@ export class Filesystem {
    */
   async searchFiles(term: string): Promise<FileSearchResult> {
     if (!term || term.trim() === "") {
-      return { success: false, error: "Search term is required" };
+      return { success: false, error: "Search `term` is required" };
     }
     const results: FileSearchMatch[] = [];
     const workDir = path.resolve(this.workDir);
@@ -664,6 +708,10 @@ export class Filesystem {
    * @returns Promise<ZipResult> containing the gzip file as a Buffer
    */
   async createGzipFile(saveAs: string | null = null): Promise<ZipResult> {
+    if (!this.workDir) {
+      return { success: false, error: "Work directory is not set" };
+    }
+
     try {
       const archive = archiver("tar", {
         gzip: true,
