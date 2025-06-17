@@ -1,4 +1,3 @@
-import * as fsSync from "fs";
 import { Client, Databases, Sites, Storage, Teams, Users } from "node-appwrite";
 import { Synapse } from "../synapse";
 
