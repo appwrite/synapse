@@ -13,23 +13,13 @@ export class Appwrite {
     storage: Storage,
     sites: Sites,
   };
-  private workDir: string;
 
   constructor(
     synapse: Synapse,
-    workDir: string = process.cwd(),
     endpoint: string = "https://cloud.appwrite.io/v1",
   ) {
     this.synapse = synapse;
     this.client = new Client().setEndpoint(endpoint);
-    if (workDir) {
-      if (!fsSync.existsSync(workDir)) {
-        fsSync.mkdirSync(workDir, { recursive: true });
-      }
-      this.workDir = workDir;
-    } else {
-      this.workDir = process.cwd();
-    }
   }
 
   /**
@@ -87,14 +77,6 @@ export class Appwrite {
    */
   getClient(): Client {
     return this.client;
-  }
-
-  /**
-   * Get the working directory
-   * @returns the working directory
-   */
-  getWorkDir(): string {
-    return this.workDir;
   }
 
   /**
