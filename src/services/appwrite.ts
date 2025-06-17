@@ -98,6 +98,24 @@ export class Appwrite {
   }
 
   /**
+   * Initialize the Appwrite client
+   * @param endpoint API endpoint
+   * @param projectId Appwrite project ID
+   * @param jwt JWT token
+   * @returns this instance for method chaining
+   */
+  init(
+    endpoint: string = "https://cloud.appwrite.io/v1",
+    projectId: string,
+    jwt: string,
+  ): Appwrite {
+    this.setEndpoint(endpoint);
+    this.setProject(projectId);
+    this.setJWT(jwt);
+    return this;
+  }
+
+  /**
    * Check if the SDK has been properly initialized
    * @returns boolean indicating if endpoint, project ID, and API key are all set
    */
