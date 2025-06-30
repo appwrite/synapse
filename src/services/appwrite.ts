@@ -1,4 +1,3 @@
-import * as fsSync from "fs";
 import { Client, Databases, Sites, Storage, Teams, Users } from "node-appwrite";
 import { Synapse } from "../synapse";
 
@@ -13,23 +12,13 @@ export class Appwrite {
     storage: Storage,
     sites: Sites,
   };
-  private workDir: string;
 
   constructor(
     synapse: Synapse,
-    workDir: string = process.cwd(),
     endpoint: string = "https://cloud.appwrite.io/v1",
   ) {
     this.synapse = synapse;
     this.client = new Client().setEndpoint(endpoint);
-    if (workDir) {
-      if (!fsSync.existsSync(workDir)) {
-        fsSync.mkdirSync(workDir, { recursive: true });
-      }
-      this.workDir = workDir;
-    } else {
-      this.workDir = process.cwd();
-    }
   }
 
   /**
@@ -90,11 +79,21 @@ export class Appwrite {
   }
 
   /**
-   * Get the working directory
-   * @returns the working directory
+   * Initialize the Appwrite client
+   * @param endpoint API endpoint
+   * @param projectId Appwrite project ID
+   * @param jwt JWT token
+   * @returns this instance for method chaining
    */
-  getWorkDir(): string {
-    return this.workDir;
+  init(
+    endpoint: string = "https://cloud.appwrite.io/v1",
+    projectId: string,
+    jwt: string,
+  ): Appwrite {
+    this.setEndpoint(endpoint);
+    this.setProject(projectId);
+    this.setJWT(jwt);
+    return this;
   }
 
   /**
