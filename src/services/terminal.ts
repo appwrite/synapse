@@ -5,8 +5,6 @@ import { Synapse } from "../synapse";
 import { exec } from "child_process";
 import { promisify } from "util";
 
-const execAsync = promisify(exec);
-
 export type TerminalOptions = {
   shell: string;
   cols?: number;
@@ -151,7 +149,7 @@ export class Terminal {
     }
 
     try {
-      const { stdout, stderr } = await execAsync(command, {
+      const { stdout, stderr } = await promisify(exec)(command, {
         cwd,
         encoding: 'utf-8',
         timeout,
