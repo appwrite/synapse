@@ -2,6 +2,10 @@ import fs from "fs";
 import * as pty from "node-pty";
 import * as os from "os";
 import { Synapse } from "../synapse";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 export type TerminalOptions = {
   shell: string;
@@ -134,6 +138,35 @@ export class Terminal {
       this.term?.write(command);
     } catch (error) {
       console.error("Failed to execute command:", error);
+    }
+  }
+
+  async executeCommand(command: string, cwd: string, timeout: number = 5000): Promise<{ output: string, exitCode: number }> {
+    if (!command) {
+      throw new Error("Command is required");
+    }
+
+    if (!cwd) {
+      throw new Error("cwd is required");
+    }
+
+    try {
+      const { stdout, stderr } = await execAsync(command, {
+        cwd,
+        encoding: 'utf-8',
+        timeout,
+      });
+
+      return {
+        output: stdout || stderr || '',
+        exitCode: 0 // Success case - error case is handled in catch block
+      }
+    } catch (error: any) {
+      console.error("Failed to execute command:", error);
+      return {
+        output: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: 1,
+      };
     }
   }
 
