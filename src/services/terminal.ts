@@ -156,7 +156,7 @@ export class Terminal {
       });
 
       return {
-        output: stdout || stderr || '',
+        output: (stdout || stderr || '').trimEnd(),
         exitCode: 0 // Success case - error case is handled in catch block
       }
     } catch (error: any) {
