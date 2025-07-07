@@ -61,6 +61,16 @@ export type ZipResult = {
   };
 };
 
+export type FileListItem<WithContent extends boolean = false> = WithContent extends true 
+  ? { path: string; content: string }
+  : { path: string };
+
+export type FileListResult<WithContent extends boolean = false> = {
+  success: boolean;
+  data?: FileListItem<WithContent>[];
+  error?: string;
+};
+
 export class Filesystem {
   private synapse: Synapse;
   private workDir: string;
@@ -793,6 +803,103 @@ export class Filesystem {
         };
       }
     } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Lists all files in a directory with optional content and recursive traversal
+   * @param dirPath - The directory path to list files from
+   * @param withContent - Whether to include file content in the results
+   * @param recursive - Whether to recursively traverse subdirectories
+   * @returns Promise<FileListResult> containing array of file objects
+   */
+  async listFilesInDir(dirPath: string, withContent: true, recursive?: boolean): Promise<FileListResult<true>>;
+  async listFilesInDir(dirPath: string, withContent?: false, recursive?: boolean): Promise<FileListResult<false>>;
+  async listFilesInDir(dirPath: string, withContent?: boolean, recursive?: boolean): Promise<FileListResult<boolean>>;
+  async listFilesInDir(
+    dirPath: string,
+    withContent: boolean = false,
+    recursive: boolean = false,
+  ): Promise<FileListResult<boolean>> {
+    if (!dirPath) {
+      return { success: false, error: "path is required" };
+    }
+
+    try {
+      const fullPath = this.resolvePath(dirPath);
+      const workDir = path.resolve(this.workDir);
+      const results: Array<{ path: string; content?: string }> = [];
+
+      // Read and parse .gitignore
+      let ig: ReturnType<typeof ignore> | null = null;
+      try {
+        const gitignorePath = this.resolvePath(".gitignore");
+        const gitignoreContent = fsSync.existsSync(gitignorePath)
+          ? fsSync.readFileSync(gitignorePath, "utf-8")
+          : "";
+        ig = ignore().add(gitignoreContent);
+      } catch {
+        ig = null;
+      }
+
+      const walkDirectory = async (dir: string) => {
+        let entries: fsSync.Dirent[];
+        try {
+          entries = await fs.readdir(dir, { withFileTypes: true });
+        } catch {
+          return;
+        }
+
+        for (const entry of entries) {
+          const absPath = path.join(dir, entry.name);
+          const relPath = path.relative(workDir, absPath).replace(/\\/g, "/");
+
+          // Skip if ignored by .gitignore or IGNORE_PATTERNS
+          if (ig && ig.ignores(relPath)) {
+            continue;
+          }
+          if (IGNORE_PATTERNS.some((pattern) => relPath.includes(pattern))) {
+            continue;
+          }
+
+          if (entry.isDirectory()) {
+            if (recursive) {
+              await walkDirectory(absPath);
+            }
+          } else if (entry.isFile()) {
+            const fileObj: { path: string; content?: string } = {
+              path: relPath,
+            };
+
+            if (withContent) {
+              try {
+                const content = await fs.readFile(absPath, "utf-8");
+                fileObj.content = content;
+              } catch {
+                // If we can't read the file, skip it or include it without content
+                continue;
+              }
+            }
+
+            results.push(fileObj);
+          }
+        }
+      };
+
+      await walkDirectory(fullPath);
+
+      return {
+        success: true,
+        data: results as FileListItem<boolean>[],
+      };
+    } catch (error) {
+      this.log(
+        `Error listing files in directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
