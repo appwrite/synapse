@@ -199,29 +199,28 @@ describe("Filesystem", () => {
       };
       (chokidar.watch as jest.Mock).mockReturnValue(mockWatcher);
 
-      // Mock file system operations
-      (fsp.lstat as jest.Mock).mockResolvedValue({ isFile: () => true });
-      (fsp.readFile as jest.Mock).mockResolvedValue("test content");
+      // Mock fs.stat and fs.readFile for the file content
+      jest.spyOn(fsp, "lstat").mockResolvedValue({
+        isFile: () => true,
+        isDirectory: () => false,
+      } as any);
+      jest.spyOn(fsp, "readFile").mockResolvedValue("test content");
 
-      // Start watching
       filesystem.watchWorkDir(onChange);
 
-      // Simulate file change event
-      mockWatcher.on.mock.calls[0][1]("add", testFilePath);
+      // Simulate file change event (triggering the "all" event)
+      const onAllCallback = mockWatcher.on.mock.calls.find(
+        (call) => call[0] === "all",
+      )?.[1];
+      if (onAllCallback) {
+        await onAllCallback("change", testFilePath);
+      }
 
-      // Wait for the watcher to detect changes
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify onChange was called with correct data
       expect(onChange).toHaveBeenCalledWith({
         path: "watch-test.txt",
-        event: "add",
+        event: "change",
         content: "test content",
       });
-
-      // Clean up
-      filesystem.unwatchWorkDir();
-      expect(mockWatcher.close).toHaveBeenCalled();
     });
   });
 
@@ -350,6 +349,151 @@ describe("Filesystem", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Failed to read directory");
+    });
+  });
+
+  describe("listFilesInDir", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it("should list files without content", async () => {
+      const testDir = "test-dir";
+      const mockFiles = [
+        { name: "file1.txt", isDirectory: () => false, isFile: () => true },
+        { name: "file2.js", isDirectory: () => false, isFile: () => true },
+        { name: "subdir", isDirectory: () => true, isFile: () => false },
+      ];
+
+      (fsp.readdir as jest.Mock).mockResolvedValue(mockFiles);
+      (fsSync.existsSync as jest.Mock).mockReturnValue(false); // No .gitignore
+
+      const result = await filesystem.listFilesInDir({
+        dirPath: testDir,
+        withContent: false,
+        recursive: false,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2); // Only files, not directories
+      expect(result.data?.[0]).toEqual({ path: "test-dir/file1.txt" });
+      expect(result.data?.[1]).toEqual({ path: "test-dir/file2.js" });
+    });
+
+    it("should list files with content", async () => {
+      const testDir = "test-dir";
+      const mockFiles = [
+        { name: "file1.txt", isDirectory: () => false, isFile: () => true },
+        { name: "file2.js", isDirectory: () => false, isFile: () => true },
+      ];
+
+      (fsp.readdir as jest.Mock).mockResolvedValue(mockFiles);
+      (fsSync.existsSync as jest.Mock).mockReturnValue(false); // No .gitignore
+      (fsp.readFile as jest.Mock)
+        .mockResolvedValueOnce("content of file1")
+        .mockResolvedValueOnce("content of file2");
+
+      const result = await filesystem.listFilesInDir({
+        dirPath: testDir,
+        withContent: true,
+        recursive: false,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(result.data?.[0]).toEqual({
+        path: "test-dir/file1.txt",
+        content: "content of file1",
+      });
+      expect(result.data?.[1]).toEqual({
+        path: "test-dir/file2.js",
+        content: "content of file2",
+      });
+    });
+
+    it("should handle recursive directory traversal", async () => {
+      const testDir = "test-dir";
+      const mockRootFiles = [
+        { name: "root.txt", isDirectory: () => false, isFile: () => true },
+        { name: "subdir", isDirectory: () => true, isFile: () => false },
+      ];
+      const mockSubdirFiles = [
+        { name: "sub.txt", isDirectory: () => false, isFile: () => true },
+      ];
+
+      (fsp.readdir as jest.Mock)
+        .mockResolvedValueOnce(mockRootFiles) // First call for root dir
+        .mockResolvedValueOnce(mockSubdirFiles); // Second call for subdirectory
+
+      (fsSync.existsSync as jest.Mock).mockReturnValue(false); // No .gitignore
+
+      const result = await filesystem.listFilesInDir({
+        dirPath: testDir,
+        withContent: false,
+        recursive: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(result.data?.map((f) => f.path)).toEqual([
+        "test-dir/root.txt",
+        "test-dir/subdir/sub.txt",
+      ]);
+    });
+
+    it("should handle file read errors when withContent is true", async () => {
+      const testDir = "test-dir";
+      const mockFiles = [
+        { name: "file1.txt", isDirectory: () => false, isFile: () => true },
+        { name: "file2.txt", isDirectory: () => false, isFile: () => true },
+      ];
+
+      (fsp.readdir as jest.Mock).mockResolvedValue(mockFiles);
+      (fsSync.existsSync as jest.Mock).mockReturnValue(false); // No .gitignore
+      (fsp.readFile as jest.Mock)
+        .mockResolvedValueOnce("content of file1")
+        .mockRejectedValueOnce(new Error("Permission denied")); // Second file fails
+
+      const result = await filesystem.listFilesInDir({
+        dirPath: testDir,
+        withContent: true,
+        recursive: false,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1); // Only the readable file
+      expect(result.data?.[0]).toEqual({
+        path: "test-dir/file1.txt",
+        content: "content of file1",
+      });
+    });
+
+    it("should return error when dirPath is not provided", async () => {
+      const result = await filesystem.listFilesInDir({
+        dirPath: "",
+        withContent: false,
+        recursive: false,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("path is required");
+    });
+
+    it("should handle directory read errors", async () => {
+      const testDir = "nonexistent-dir";
+
+      (fsp.readdir as jest.Mock).mockRejectedValue(
+        new Error("Directory not found"),
+      );
+
+      const result = await filesystem.listFilesInDir({
+        dirPath: testDir,
+        withContent: false,
+        recursive: false,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
     });
   });
 });

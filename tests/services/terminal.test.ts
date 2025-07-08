@@ -4,6 +4,7 @@ import { Terminal, TerminalOptions } from "../../src/services/terminal";
 import { Synapse } from "../../src/synapse";
 
 jest.mock("node-pty");
+jest.mock("child_process");
 
 describe("Terminal", () => {
   let terminal: Terminal;
@@ -104,6 +105,57 @@ describe("Terminal", () => {
 
       const customTerminal = new Terminal(mockSynapse, customOptions);
       expect(customTerminal.isTerminalAlive()).toBe(true);
+    });
+  });
+
+  describe("executeCommand", () => {
+    beforeEach(() => {
+      terminal = new Terminal(mockSynapse);
+      jest.spyOn(fs, "existsSync").mockReturnValue(true);
+    });
+
+    it("should successfully execute a command", async () => {
+      const { exec } = require("child_process");
+      (exec as jest.Mock).mockImplementation((command, options, callback) => {
+        callback(null, { stdout: "hello\n", stderr: "" });
+      });
+
+      const result = await terminal.executeCommand("echo hello", "/tmp");
+
+      expect(result).toEqual({
+        output: "hello\n",
+        exitCode: 0,
+      });
+    });
+
+    it("should handle command execution errors", async () => {
+      const { exec } = require("child_process");
+      const mockError = new Error(
+        "Command failed: invalid-command\n/bin/sh: invalid-command: command not found\n",
+      );
+      (exec as jest.Mock).mockImplementation((command, options, callback) => {
+        callback(mockError, null);
+      });
+
+      const result = await terminal.executeCommand("invalid-command", "/tmp");
+
+      expect(result).toEqual({
+        output:
+          "Error: Command failed: invalid-command\n/bin/sh: invalid-command: command not found\n",
+        exitCode: 1,
+      });
+    });
+
+    it("should throw error when command is not provided", async () => {
+      await expect(terminal.executeCommand("", "/tmp")).rejects.toThrow(
+        "Command is required",
+      );
+    });
+
+    it("should throw error when cwd is not provided", async () => {
+      await expect(terminal.executeCommand("echo hello", "")).rejects.toThrow(
+        "cwd is required",
+      );
     });
   });
 });
