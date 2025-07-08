@@ -130,7 +130,9 @@ describe("Terminal", () => {
 
     it("should handle command execution errors", async () => {
       const { exec } = require("child_process");
-      const mockError = new Error("Command failed: invalid-command\n/bin/sh: invalid-command: command not found\n");
+      const mockError = new Error(
+        "Command failed: invalid-command\n/bin/sh: invalid-command: command not found\n",
+      );
       (exec as jest.Mock).mockImplementation((command, options, callback) => {
         callback(mockError, null);
       });
@@ -138,7 +140,8 @@ describe("Terminal", () => {
       const result = await terminal.executeCommand("invalid-command", "/tmp");
 
       expect(result).toEqual({
-        output: "Error: Command failed: invalid-command\n/bin/sh: invalid-command: command not found\n",
+        output:
+          "Error: Command failed: invalid-command\n/bin/sh: invalid-command: command not found\n",
         exitCode: 1,
       });
     });

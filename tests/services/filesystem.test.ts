@@ -368,7 +368,11 @@ describe("Filesystem", () => {
       (fsp.readdir as jest.Mock).mockResolvedValue(mockFiles);
       (fsSync.existsSync as jest.Mock).mockReturnValue(false); // No .gitignore
 
-      const result = await filesystem.listFilesInDir(testDir, false, false);
+      const result = await filesystem.listFilesInDir({
+        dirPath: testDir,
+        withContent: false,
+        recursive: false,
+      });
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2); // Only files, not directories
@@ -389,17 +393,21 @@ describe("Filesystem", () => {
         .mockResolvedValueOnce("content of file1")
         .mockResolvedValueOnce("content of file2");
 
-      const result = await filesystem.listFilesInDir(testDir, true, false);
+      const result = await filesystem.listFilesInDir({
+        dirPath: testDir,
+        withContent: true,
+        recursive: false,
+      });
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2);
-      expect(result.data?.[0]).toEqual({ 
-        path: "test-dir/file1.txt", 
-        content: "content of file1" 
+      expect(result.data?.[0]).toEqual({
+        path: "test-dir/file1.txt",
+        content: "content of file1",
       });
-      expect(result.data?.[1]).toEqual({ 
-        path: "test-dir/file2.js", 
-        content: "content of file2" 
+      expect(result.data?.[1]).toEqual({
+        path: "test-dir/file2.js",
+        content: "content of file2",
       });
     });
 
@@ -419,11 +427,18 @@ describe("Filesystem", () => {
 
       (fsSync.existsSync as jest.Mock).mockReturnValue(false); // No .gitignore
 
-      const result = await filesystem.listFilesInDir(testDir, false, true);
+      const result = await filesystem.listFilesInDir({
+        dirPath: testDir,
+        withContent: false,
+        recursive: true,
+      });
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2);
-      expect(result.data?.map(f => f.path)).toEqual(["test-dir/root.txt", "test-dir/subdir/sub.txt"]);
+      expect(result.data?.map((f) => f.path)).toEqual([
+        "test-dir/root.txt",
+        "test-dir/subdir/sub.txt",
+      ]);
     });
 
     it("should handle file read errors when withContent is true", async () => {
@@ -439,18 +454,26 @@ describe("Filesystem", () => {
         .mockResolvedValueOnce("content of file1")
         .mockRejectedValueOnce(new Error("Permission denied")); // Second file fails
 
-      const result = await filesystem.listFilesInDir(testDir, true, false);
+      const result = await filesystem.listFilesInDir({
+        dirPath: testDir,
+        withContent: true,
+        recursive: false,
+      });
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(1); // Only the readable file
-      expect(result.data?.[0]).toEqual({ 
-        path: "test-dir/file1.txt", 
-        content: "content of file1" 
+      expect(result.data?.[0]).toEqual({
+        path: "test-dir/file1.txt",
+        content: "content of file1",
       });
     });
 
     it("should return error when dirPath is not provided", async () => {
-      const result = await filesystem.listFilesInDir("", false, false);
+      const result = await filesystem.listFilesInDir({
+        dirPath: "",
+        withContent: false,
+        recursive: false,
+      });
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("path is required");
@@ -458,10 +481,16 @@ describe("Filesystem", () => {
 
     it("should handle directory read errors", async () => {
       const testDir = "nonexistent-dir";
-      
-      (fsp.readdir as jest.Mock).mockRejectedValue(new Error("Directory not found"));
 
-      const result = await filesystem.listFilesInDir(testDir, false, false);
+      (fsp.readdir as jest.Mock).mockRejectedValue(
+        new Error("Directory not found"),
+      );
+
+      const result = await filesystem.listFilesInDir({
+        dirPath: testDir,
+        withContent: false,
+        recursive: false,
+      });
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual([]);

@@ -124,7 +124,7 @@ export class Filesystem {
    */
   async createFile(
     filePath: string,
-    content: string = ""
+    content: string = "",
   ): Promise<FileOperationResult> {
     if (!filePath) {
       return { success: false, error: "filePath is required" };
@@ -145,7 +145,7 @@ export class Filesystem {
           const folderResult = await this.createFolder(dirPath);
           if (!folderResult.success) {
             this.log(
-              `Failed to create parent directory for ${filePath}: ${folderResult.error}`
+              `Failed to create parent directory for ${filePath}: ${folderResult.error}`,
             );
 
             return { success: false, error: folderResult.error }; // failed to create parent directory
@@ -207,7 +207,7 @@ export class Filesystem {
       };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,
@@ -225,7 +225,7 @@ export class Filesystem {
    */
   async updateFile(
     filePath: string,
-    content: string
+    content: string,
   ): Promise<FileOperationResult> {
     if (!filePath) {
       return { success: false, error: "filePath is required" };
@@ -242,7 +242,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,
@@ -260,7 +260,7 @@ export class Filesystem {
    */
   async appendFile(
     filePath: string,
-    content: string
+    content: string,
   ): Promise<FileOperationResult> {
     if (!filePath) {
       return { success: false, error: "filePath is required" };
@@ -272,7 +272,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,
@@ -290,7 +290,7 @@ export class Filesystem {
    */
   async updateFilePath(
     oldPath: string,
-    newPath: string
+    newPath: string,
   ): Promise<FileOperationResult> {
     if (!oldPath || !newPath) {
       return { success: false, error: "oldPath and newPath are required" };
@@ -306,7 +306,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,
@@ -335,7 +335,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,
@@ -369,7 +369,7 @@ export class Filesystem {
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.log(
-        `Error creating directory at path ${fullPath}: ${errorMsg} (Code: ${(error as NodeJS.ErrnoException)?.code})`
+        `Error creating directory at path ${fullPath}: ${errorMsg} (Code: ${(error as NodeJS.ErrnoException)?.code})`,
       );
 
       return {
@@ -403,7 +403,7 @@ export class Filesystem {
       return { success: true, data };
     } catch (error) {
       this.log(
-        `Error reading directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`
+        `Error reading directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,
@@ -421,7 +421,7 @@ export class Filesystem {
    */
   async updateFolderName(
     dirPath: string,
-    name: string
+    name: string,
   ): Promise<FileOperationResult> {
     if (!dirPath || !name) {
       return { success: false, error: "dirPath and name are required" };
@@ -439,7 +439,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,
@@ -457,7 +457,7 @@ export class Filesystem {
    */
   async updateFolderPath(
     oldPath: string,
-    newPath: string
+    newPath: string,
   ): Promise<FileOperationResult> {
     if (!oldPath || !newPath) {
       return { success: false, error: "oldPath and newPath are required" };
@@ -473,7 +473,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,
@@ -502,7 +502,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,
@@ -520,7 +520,7 @@ export class Filesystem {
       path: string;
       event: string;
       content: string | null;
-    }) => void
+    }) => void,
   ): void {
     const fullPath = this.resolvePath(this.workDir);
     if (this.folderWatchers.has(fullPath)) {
@@ -875,7 +875,7 @@ export class Filesystem {
           }
           if (
             [...IGNORE_PATTERNS, ...(additionalIgnorePatterns || [])].some(
-              (pattern) => relPath.includes(pattern)
+              (pattern) => relPath.includes(pattern),
             )
           ) {
             continue;
@@ -913,7 +913,7 @@ export class Filesystem {
       };
     } catch (error) {
       this.log(
-        `Error listing files in directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`
+        `Error listing files in directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return {
         success: false,

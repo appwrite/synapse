@@ -139,7 +139,11 @@ export class Terminal {
     }
   }
 
-  async executeCommand(command: string, cwd: string, timeout: number = 5000): Promise<{ output: string, exitCode: number }> {
+  async executeCommand(
+    command: string,
+    cwd: string,
+    timeout: number = 5000,
+  ): Promise<{ output: string; exitCode: number }> {
     if (!command) {
       throw new Error("Command is required");
     }
@@ -151,14 +155,14 @@ export class Terminal {
     try {
       const { stdout, stderr } = await promisify(exec)(command, {
         cwd,
-        encoding: 'utf-8',
+        encoding: "utf-8",
         timeout,
       });
 
       return {
-        output: stdout || stderr || '',
-        exitCode: 0 // Success case - error case is handled in catch block
-      }
+        output: stdout || stderr || "",
+        exitCode: 0, // Success case - error case is handled in catch block
+      };
     } catch (error: any) {
       console.error("Failed to execute command:", error);
       return {
