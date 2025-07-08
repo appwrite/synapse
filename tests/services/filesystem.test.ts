@@ -357,6 +357,18 @@ describe("Filesystem", () => {
       jest.clearAllMocks();
     });
 
+    it("should list files in current working directory", async () => {
+      const result = await filesystem.listFilesInDir({
+        dirPath: ".",
+        withContent: false,
+        recursive: false,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(0);
+      expect(result.data).toEqual([]);
+    });
+
     it("should list files without content", async () => {
       const testDir = "test-dir";
       const mockFiles = [
@@ -376,8 +388,8 @@ describe("Filesystem", () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2); // Only files, not directories
-      expect(result.data?.[0]).toEqual({ path: "test-dir/file1.txt" });
-      expect(result.data?.[1]).toEqual({ path: "test-dir/file2.js" });
+      expect(result.data?.[0]).toEqual({ path: "file1.txt" });
+      expect(result.data?.[1]).toEqual({ path: "file2.js" });
     });
 
     it("should list files with content", async () => {
@@ -402,11 +414,11 @@ describe("Filesystem", () => {
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2);
       expect(result.data?.[0]).toEqual({
-        path: "test-dir/file1.txt",
+        path: "file1.txt",
         content: "content of file1",
       });
       expect(result.data?.[1]).toEqual({
-        path: "test-dir/file2.js",
+        path: "file2.js",
         content: "content of file2",
       });
     });
@@ -436,8 +448,8 @@ describe("Filesystem", () => {
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2);
       expect(result.data?.map((f) => f.path)).toEqual([
-        "test-dir/root.txt",
-        "test-dir/subdir/sub.txt",
+        "root.txt",
+        "subdir/sub.txt",
       ]);
     });
 
@@ -463,7 +475,7 @@ describe("Filesystem", () => {
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(1); // Only the readable file
       expect(result.data?.[0]).toEqual({
-        path: "test-dir/file1.txt",
+        path: "file1.txt",
         content: "content of file1",
       });
     });
