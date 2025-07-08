@@ -840,7 +840,7 @@ export class Filesystem {
       return { success: false, error: "path is required" };
     }
 
-    const safeCwd = path.join(this.workDir, dirPath);
+    const safeCwd = path.resolve(this.workDir, dirPath);
     try {
       const fullPath = this.resolvePath(safeCwd);
       const workDir = path.resolve(this.workDir);
