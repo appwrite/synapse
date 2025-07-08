@@ -840,8 +840,9 @@ export class Filesystem {
       return { success: false, error: "path is required" };
     }
 
+    const safeCwd = path.join(this.workDir, dirPath);
     try {
-      const fullPath = this.resolvePath(dirPath);
+      const fullPath = this.resolvePath(safeCwd);
       const workDir = path.resolve(this.workDir);
       const results: Array<{ path: string; content?: string }> = [];
 
@@ -867,15 +868,18 @@ export class Filesystem {
 
         for (const entry of entries) {
           const absPath = path.join(dir, entry.name);
-          const relPath = path.relative(workDir, absPath).replace(/\\/g, "/");
+          const relPath = path.relative(fullPath, absPath).replace(/\\/g, "/");
+          const relPathFromWorkDir = path
+            .relative(workDir, absPath)
+            .replace(/\\/g, "/");
 
           // Skip if ignored by .gitignore or IGNORE_PATTERNS
-          if (ig && ig.ignores(relPath)) {
+          if (ig && ig.ignores(relPathFromWorkDir)) {
             continue;
           }
           if (
             [...IGNORE_PATTERNS, ...(additionalIgnorePatterns || [])].some(
-              (pattern) => relPath.includes(pattern),
+              (pattern) => relPathFromWorkDir.includes(pattern),
             )
           ) {
             continue;
