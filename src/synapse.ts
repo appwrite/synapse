@@ -2,6 +2,7 @@ import { IncomingMessage } from "http";
 import { Socket } from "net";
 import WebSocket, { WebSocketServer } from "ws";
 import { Filesystem } from "./services/filesystem";
+import { Ports } from "./services/ports";
 import { Terminal } from "./services/terminal";
 
 export type MessagePayload = {
@@ -47,6 +48,7 @@ class Synapse {
 
   private terminals: Set<Terminal> = new Set();
   private filesystem: Filesystem | undefined;
+  private ports: Ports | undefined;
 
   private host: string;
   private port: number;
@@ -191,6 +193,32 @@ class Synapse {
   }
 
   /**
+   * Gets the Ports instance, creating it if needed
+   */
+  getPorts(): Ports {
+    if (!this.ports) {
+      this.ports = new Ports(this);
+    }
+    return this.ports;
+  }
+
+  /**
+   * Start monitoring ports for HTTP servers
+   */
+  startPortMonitoring(): void {
+    this.getPorts().startMonitoring();
+  }
+
+  /**
+   * Stop monitoring ports
+   */
+  stopPortMonitoring(): void {
+    if (this.ports) {
+      this.ports.stopMonitoring();
+    }
+  }
+
+  /**
    * Establishes a WebSocket connection to the specified URL
    * @param path - The WebSocket endpoint path (e.g. '/' or '/terminal')
    * @returns Promise that resolves with the connection ID when connected
@@ -300,6 +328,33 @@ class Synapse {
   }
 
   /**
+   * Sends a message to a specific WebSocket connection without returning a promise
+   * @param connectionId - The ID of the connection to send to
+   * @param type - The type of message to send
+   * @param payload - The payload of the message
+   * @throws Error if WebSocket is not connected
+   */
+  sendToConnection(
+    connectionId: string,
+    type: string,
+    payload: Record<string, unknown> = {},
+  ): void {
+    const connection = this.connections.get(connectionId);
+
+    if (!connection || connection.ws.readyState !== WebSocket.OPEN) {
+      throw new Error(`WebSocket connection ${connectionId} is not connected`);
+    }
+
+    const message: MessagePayload = {
+      type,
+      requestId: Date.now().toString(),
+      ...payload,
+    };
+
+    connection.ws.send(JSON.stringify(message));
+  }
+
+  /**
    * Broadcasts a message to all connected WebSocket clients
    * @param type - The type of message to send
    * @param payload - The payload of the message
@@ -372,6 +427,16 @@ class Synapse {
   }
 
   /**
+   * Registers a handler for specific message types (alias for onMessageType)
+   * @param type - The message type to handle
+   * @param handler - Function to handle messages of the specified type
+   * @returns The Synapse instance for method chaining
+   */
+  on(type: string, handler: MessageHandler): Synapse {
+    return this.onMessageType(type, handler);
+  }
+
+  /**
    * Handles HTTP upgrade requests to upgrade the connection to WebSocket
    * @param req - The HTTP request
    * @param socket - The network socket
@@ -425,6 +490,9 @@ class Synapse {
       });
       if (this.filesystem) {
         this.filesystem.cleanup();
+      }
+      if (this.ports) {
+        this.ports.stopMonitoring();
       }
       this.connections.clear();
       this.wss.close();
