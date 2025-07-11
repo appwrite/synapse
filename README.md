@@ -5,32 +5,27 @@ Operating system gateway for remote serverless environments. Synapse provides a 
 ## Features
 
 - 🖥️ Terminal management
-
   - Remote terminal session control
   - Command execution and output streaming
   - Terminal customization options
 
 - 📂 File system operations
-
   - Complete CRUD operations for files and directories
   - Path and directory management
   - File system navigation and manipulation
 
 - 📊 System monitoring
-
   - Real-time CPU and memory metrics
   - System load monitoring
   - Performance statistics
 
 - 📦 Git operations
-
   - Git repository management
   - Branch operations
   - Commit and push changes
   - Pull and merge remote changes
 
 - 📝 Code style management
-
   - Linting and formatting
   - Error detection and correction
   - Code formatting options
