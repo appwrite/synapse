@@ -1,6 +1,6 @@
 {
   "name": "@appwrite.io/synapse",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Operating system gateway for remote serverless environments",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
