@@ -32,5 +32,8 @@ jobs:
           APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
           APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
 
+      - name: Build
+        run: npm run build
+
       - name: Run tests
         run: npm test
