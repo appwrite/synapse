@@ -9,9 +9,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "test": "node --no-warnings --experimental-vm-modules node_modules/.bin/jest",
-    "test:watch": "node --no-warnings --experimental-vm-modules node_modules/.bin/jest --watch",
-    "test:coverage": "node --no-warnings --experimental-vm-modules node_modules/.bin/jest --coverage",
+    "test": "node --env-file .env --test dist/tests/**/*.test.js",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write ."
   },

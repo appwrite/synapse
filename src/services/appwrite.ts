@@ -116,14 +116,14 @@ export class Appwrite {
    * Call a method on an Appwrite service
    * @param serviceName The name of the service (e.g., 'users', 'databases')
    * @param methodName The name of the method to call on the service
-   * @param args Arguments to pass to the method
+   * @param args Arguments to pass to the method as an object
    * @returns The result of the method call
    * @throws Error if service or method does not exist
    */
   async call(
     serviceName: string,
     methodName: string,
-    args: object = {},
+    args: Record<string, any> = {},
   ): Promise<any> {
     // Check if SDK is initialized before making any calls
     if (!this.isInitialized()) {
@@ -158,7 +158,7 @@ export class Appwrite {
       );
     }
 
-    // Call the method with provided arguments
+    // Call the method with provided arguments as an object
     return service[methodName](...Object.values(args));
   }
 }

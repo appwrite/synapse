@@ -1,127 +1,63 @@
-import { Client, Users } from "node-appwrite";
+import test from "node:test";
+import assert from "node:assert/strict";
 import { Appwrite } from "../../src/services/appwrite";
 import { Synapse } from "../../src/synapse";
 
-jest.mock("node-appwrite", () => ({
-  Client: jest.fn().mockImplementation(() => ({
-    setEndpoint: jest.fn().mockReturnThis(),
-    setProject: jest.fn().mockReturnThis(),
-    setKey: jest.fn().mockReturnThis(),
-    config: {},
-  })),
-  Users: jest.fn().mockImplementation(() => ({
-    list: jest.fn(),
-  })),
-}));
+function createAppwrite() {
+  const appwrite = new Appwrite(new Synapse());
+  appwrite
+    .setEndpoint(process.env.APPWRITE_ENDPOINT || "")
+    .setProject(process.env.APPWRITE_PROJECT || "")
+    .setKey(process.env.APPWRITE_API_KEY || "");
+  return appwrite;
+}
 
-describe("Appwrite", () => {
-  let appwrite: Appwrite;
-  let mockClient: jest.Mocked<Client>;
-  let MockedClient: jest.MockedClass<typeof Client>;
+test("Appwrite instance creation", () => {
+  const appwrite = new Appwrite(new Synapse());
+  assert.ok(appwrite instanceof Appwrite);
+});
 
-  beforeEach(() => {
-    jest.clearAllMocks();
+test("Appwrite configuration chaining", () => {
+  const appwrite = new Appwrite(new Synapse());
+  const result = appwrite
+    .setEndpoint(process.env.APPWRITE_ENDPOINT || "")
+    .setProject("test-project")
+    .setKey("test-api-key");
+  assert.strictEqual(result, appwrite);
+});
 
-    // Get the mocked constructors
-    MockedClient = Client as jest.MockedClass<typeof Client>;
+test("Appwrite initialization check", () => {
+  const appwrite = new Appwrite(new Synapse());
+  assert.equal(appwrite.isInitialized(), false);
 
-    // Create a new instance
-    appwrite = new Appwrite(new Synapse());
+  appwrite
+    .setEndpoint(process.env.APPWRITE_ENDPOINT || "")
+    .setProject(process.env.APPWRITE_PROJECT || "")
+    .setKey(process.env.APPWRITE_API_KEY || "");
+  assert.equal(appwrite.isInitialized(), true);
+});
 
-    // Get the mocked client instance
-    mockClient = MockedClient.mock.results[0].value;
+test("Appwrite service call: error when not initialized", async () => {
+  const appwrite = new Appwrite(new Synapse());
+  await assert.rejects(
+    () => appwrite.call("users", "list"),
+    /Appwrite SDK is not properly initialized/,
+  );
+});
+
+test("Appwrite service call: error for non-existent service", async () => {
+  const appwrite = createAppwrite();
+  await assert.rejects(
+    () => appwrite.call("nonexistent", "list"),
+    /Service 'nonexistent' does not exist in Appwrite SDK/,
+  );
+});
+
+test("Appwrite service call: users.list", async () => {
+  const appwrite = createAppwrite();
+  const result = await appwrite.call("users", "list", {
+    queries: ['{"method":"limit","values":[25]}'],
   });
-
-  describe("initialization", () => {
-    it("should create a new instance without parameters", () => {
-      expect(appwrite).toBeInstanceOf(Appwrite);
-      expect(Client).toHaveBeenCalled();
-    });
-  });
-
-  describe("configuration", () => {
-    it("should properly configure the client and return instance for chaining", () => {
-      const endpoint = "https://cloud.appwrite.io/v1";
-      const projectId = "test-project";
-      const apiKey = "test-api-key";
-
-      const result = appwrite
-        .setEndpoint(endpoint)
-        .setProject(projectId)
-        .setKey(apiKey);
-
-      expect(mockClient.setEndpoint).toHaveBeenCalledWith(endpoint);
-      expect(mockClient.setProject).toHaveBeenCalledWith(projectId);
-      expect(mockClient.setKey).toHaveBeenCalledWith(apiKey);
-      expect(result).toBe(appwrite);
-    });
-  });
-
-  describe("initialization check", () => {
-    it("should return false when not properly initialized", () => {
-      expect(appwrite.isInitialized()).toBe(false);
-    });
-
-    it("should return true when properly initialized", () => {
-      appwrite.setEndpoint("https://cloud.appwrite.io/v1");
-      appwrite.setProject("test-project");
-      appwrite.setKey("test-api-key");
-
-      // Mock the private config object
-      (mockClient as any).config = {
-        endpoint: "https://cloud.appwrite.io/v1",
-        project: "test-project",
-        key: "test-api-key",
-      };
-
-      expect(appwrite.isInitialized()).toBe(true);
-    });
-  });
-
-  describe("service calls", () => {
-    beforeEach(() => {
-      // Setup basic initialization
-      appwrite.setEndpoint("https://cloud.appwrite.io/v1");
-      appwrite.setProject("test-project");
-      appwrite.setKey("test-api-key");
-
-      // Mock the private config object
-      (mockClient as any).config = {
-        endpoint: "https://cloud.appwrite.io/v1",
-        project: "test-project",
-        key: "test-api-key",
-      };
-    });
-
-    it("should throw error when SDK is not initialized", async () => {
-      const uninitializedAppwrite = new Appwrite(new Synapse());
-      await expect(uninitializedAppwrite.call("users", "list")).rejects.toThrow(
-        "Appwrite SDK is not properly initialized",
-      );
-    });
-
-    it("should throw error for non-existent service", async () => {
-      await expect(appwrite.call("nonexistent", "list")).rejects.toThrow(
-        "Service 'nonexistent' does not exist in Appwrite SDK",
-      );
-    });
-
-    it("should successfully call a service method", async () => {
-      const mockUsers = new Users(mockClient);
-      const mockResponse = {
-        total: 1,
-        users: [{ id: "1", name: "Test User" }],
-      };
-
-      // Mock the Users constructor and method
-      (Users as jest.Mock).mockImplementation(() => mockUsers);
-      mockUsers.list = jest.fn().mockResolvedValue(mockResponse);
-
-      const result = await appwrite.call("users", "list", { limit: 10 });
-
-      expect(Users).toHaveBeenCalledWith(mockClient);
-      expect(mockUsers.list).toHaveBeenCalledWith(10);
-      expect(result).toEqual(mockResponse);
-    });
-  });
+  assert.ok(result.total >= 0);
+  assert.ok(Array.isArray(result.users));
 });

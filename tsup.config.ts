@@ -7,7 +7,7 @@ const commonConfig: Options = {
   dts: true,
   treeshake: true,
   target: "node16",
-  entry: ["src/**/*.ts"],
+  entry: ["src/**/*.ts", "tests/**/*.ts"],
   outDir: "dist",
 };
 
