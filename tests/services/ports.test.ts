@@ -1,61 +1,54 @@
-import { Synapse } from "../../src/synapse";
+import { test, describe, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { Ports } from "../../src/services/ports";
+import { Synapse } from "../../src/synapse";
 
-describe("Ports", () => {
-  let synapse: Synapse;
-  let ports: Ports;
+let synapse: Synapse;
+let ports: Ports;
 
-  beforeEach(() => {
-    synapse = new Synapse("localhost", 3000);
-    ports = new Ports(synapse);
+beforeEach(() => {
+  synapse = new Synapse("localhost", 3000);
+  ports = new Ports(synapse);
+});
 
-    // Mock broadcast method
-    synapse.broadcast = jest.fn();
-    synapse.sendToConnection = jest.fn();
+afterEach(() => {
+  ports.stopMonitoring();
+  synapse.disconnect();
+});
 
-    // Use fake timers for most tests
-    jest.useFakeTimers();
-  });
+describe("Ports monitoring lifecycle", () => {
+  test("starts and stops monitoring", () => {
+    assert.strictEqual(ports.isActive(), false);
 
-  afterEach(() => {
+    ports.startMonitoring();
+    assert.strictEqual(ports.isActive(), true);
+
     ports.stopMonitoring();
-    jest.useRealTimers();
+    assert.strictEqual(ports.isActive(), false);
   });
 
-  describe("monitoring lifecycle", () => {
-    it("should start and stop monitoring", () => {
-      expect(ports.isActive()).toBe(false);
+  test("does not start monitoring if already active", () => {
+    ports.startMonitoring();
+    const firstActive = ports.isActive();
+    ports.startMonitoring();
+    assert.strictEqual(ports.isActive(), firstActive);
+  });
+});
 
-      ports.startMonitoring();
-      expect(ports.isActive()).toBe(true);
-
-      ports.stopMonitoring();
-      expect(ports.isActive()).toBe(false);
-    });
-
-    it("should not start monitoring if already active", () => {
-      ports.startMonitoring();
-      const firstCall = ports.isActive();
-      ports.startMonitoring();
-      expect(ports.isActive()).toBe(firstCall);
-    });
+describe("Ports integration with Synapse", () => {
+  test("is accessible through Synapse.getPorts()", () => {
+    const portsInstance = synapse.getPorts();
+    assert.ok(portsInstance instanceof Ports);
   });
 
-  describe("integration with Synapse", () => {
-    it("should be accessible through Synapse.getPorts()", () => {
-      const portsInstance = synapse.getPorts();
-      expect(portsInstance).toBeInstanceOf(Ports);
-    });
+  test("can start monitoring through Synapse.startPortMonitoring()", () => {
+    synapse.startPortMonitoring();
+    assert.strictEqual(synapse.getPorts().isActive(), true);
+  });
 
-    it("should start monitoring through Synapse.startPortMonitoring()", () => {
-      synapse.startPortMonitoring();
-      expect(synapse.getPorts().isActive()).toBe(true);
-    });
-
-    it("should stop monitoring through Synapse.stopPortMonitoring()", () => {
-      synapse.startPortMonitoring();
-      synapse.stopPortMonitoring();
-      expect(synapse.getPorts().isActive()).toBe(false);
-    });
+  test("can stop monitoring through Synapse.stopPortMonitoring()", () => {
+    synapse.startPortMonitoring();
+    synapse.stopPortMonitoring();
+    assert.strictEqual(synapse.getPorts().isActive(), false);
   });
 });

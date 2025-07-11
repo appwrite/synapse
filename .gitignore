@@ -13,3 +13,6 @@ coverage/
 # Editor-specific files
 .vscode/
 .idea/
+
+# Environment variables
+.env

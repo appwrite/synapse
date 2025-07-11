@@ -312,7 +312,9 @@ class Synapse {
     const connection = this.connections.get(connectionId);
 
     if (!connection || connection.ws.readyState !== WebSocket.OPEN) {
-      throw new Error(`WebSocket connection ${connectionId} is not connected`);
+      return Promise.reject(
+        new Error(`WebSocket connection ${connectionId} is not connected`),
+      );
     }
 
     const message: MessagePayload = {

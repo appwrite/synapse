@@ -1,4 +1,3 @@
-export const spawn = jest.fn();
 export type IPty = {
   onData: (callback: (data: string) => void) => void;
   write: (data: string) => void;
