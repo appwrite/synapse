@@ -25,12 +25,8 @@ jobs:
         run: |
           echo "NODE_ENV=test" >> .env
           echo "APPWRITE_ENDPOINT=${{ secrets.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1' }}" >> .env
-          echo "APPWRITE_PROJECT_ID=${{ secrets.APPWRITE_PROJECT_ID || 'synapse' }}" >> .env
-          echo "APPWRITE_API_KEY=${{ secrets.APPWRITE_API_KEY || '650000000000000000000000' }}" >> .env
-        env:
-          APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
-          APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
-          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+          echo "APPWRITE_PROJECT_ID=${{ secrets.APPWRITE_PROJECT_ID }}" >> .env
+          echo "APPWRITE_API_KEY=${{ secrets.APPWRITE_API_KEY }}" >> .env
 
       - name: Build
         run: npm run build
