@@ -7,7 +7,7 @@ function createAppwrite() {
   const appwrite = new Appwrite(new Synapse());
   appwrite
     .setEndpoint(process.env.APPWRITE_ENDPOINT || "")
-    .setProject(process.env.APPWRITE_PROJECT || "")
+    .setProject(process.env.APPWRITE_PROJECT_ID || "")
     .setKey(process.env.APPWRITE_API_KEY || "");
   return appwrite;
 }
@@ -32,7 +32,7 @@ test("Appwrite initialization check", () => {
 
   appwrite
     .setEndpoint(process.env.APPWRITE_ENDPOINT || "")
-    .setProject(process.env.APPWRITE_PROJECT || "")
+    .setProject(process.env.APPWRITE_PROJECT_ID || "")
     .setKey(process.env.APPWRITE_API_KEY || "");
   assert.equal(appwrite.isInitialized(), true);
 });

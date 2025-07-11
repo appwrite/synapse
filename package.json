@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:test": "tsup --config tsup.test.config.ts",
     "test": "node --env-file .env --test dist/tests/**/*.test.js",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write ."

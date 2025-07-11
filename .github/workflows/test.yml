@@ -29,7 +29,7 @@ jobs:
           echo "APPWRITE_API_KEY=${{ secrets.APPWRITE_API_KEY }}" >> .env
 
       - name: Build
-        run: npm run build
+        run: npm run build:test
 
       - name: Run tests
         run: npm test
