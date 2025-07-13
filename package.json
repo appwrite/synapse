@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsup",
     "build:test": "tsup --config tsup.test.config.ts",
-    "test": "node --env-file .env --test $(find dist/tests -name '*.test.js' | tr '\\n' ' ')",
+    "test": "node --test $(find dist/tests -name '*.test.js' | tr '\\n' ' ')",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write ."
   },

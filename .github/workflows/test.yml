@@ -21,13 +21,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Create environment file
-        run: |
-          echo "NODE_ENV=test" >> .env
-          echo "APPWRITE_ENDPOINT=${{ secrets.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1' }}" >> .env
-          echo "APPWRITE_PROJECT_ID=${{ secrets.APPWRITE_PROJECT_ID }}" >> .env
-          echo "APPWRITE_API_KEY=${{ secrets.APPWRITE_API_KEY }}" >> .env
-
       - name: Build
         run: npm run build:test
 
