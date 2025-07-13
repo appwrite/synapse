@@ -13,6 +13,7 @@ export class Git {
   private synapse: Synapse;
   private workDir: string;
   private timeout: number;
+
   /**
    * Creates a new Git instance
    * @param synapse - The Synapse instance to use
