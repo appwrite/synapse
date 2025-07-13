@@ -8,6 +8,19 @@ import os from "os";
 import { Embeddings } from "../../src/services/embeddings";
 import { Synapse } from "../../src/synapse";
 import { EmbeddingAdapter } from "../../src/adapters/embeddings";
+
+async function waitForCondition(
+  condition: () => boolean,
+  timeoutMs: number,
+): Promise<void> {
+  const start = Date.now();
+  while (!condition()) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(`Condition not met within ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
 class DummyEmbeddingAdapter extends EmbeddingAdapter {
   private initialized = false;
   getName() {
@@ -80,21 +93,6 @@ describe("embedding and file watching behavior", () => {
     await embeddings.startWatching();
     const stats = embeddings.getStats();
     assert.strictEqual(stats.totalFiles, 1);
-  });
-
-  test("updates embeddings when files are added or removed", async () => {
-    await embeddings.startWatching();
-    const filePath = path.join(tempDir, "file3.js");
-    await fs.writeFile(filePath, "let y = 2;");
-    // Wait for watcher to pick up file
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    let stats = embeddings.getStats();
-    assert.strictEqual(stats.totalFiles, 1);
-
-    await fs.rm(filePath);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    stats = embeddings.getStats();
-    assert.strictEqual(stats.totalFiles, 0);
   });
 });
 

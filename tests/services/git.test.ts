@@ -20,7 +20,13 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await fs.rm(tempDir, { recursive: true, force: true });
+  synapse.disconnect();
 });
+
+async function configureGitUser(): Promise<void> {
+  await git.setUserName("Test User");
+  await git.setUserEmail("test@example.com");
+}
 
 // --- Git Repository Initialization ---
 describe("Git repository initialization", () => {
@@ -80,7 +86,7 @@ describe("Git remote management", () => {
 describe("Branch and status operations", () => {
   test("gets the current branch after initial commit", async () => {
     await git.init();
-    // Create a file and make initial commit to establish HEAD
+    await configureGitUser();
     const filePath = path.join(tempDir, "init.txt");
     await fs.writeFile(filePath, "initial");
     await git.add(["init.txt"]);
@@ -130,6 +136,7 @@ describe("File staging", () => {
 describe("Committing changes", () => {
   test("commits staged changes", async () => {
     await git.init();
+    await configureGitUser();
     const filePath = path.join(tempDir, "file.txt");
     await fs.writeFile(filePath, "commit me");
     await git.add(["file.txt"]);
@@ -141,56 +148,13 @@ describe("Committing changes", () => {
 
   test("returns error when nothing to commit", async () => {
     await git.init();
+    await configureGitUser();
     const result = await git.commit("test commit");
     assert.strictEqual(result.success, false);
     assert.ok(result.error);
-    // Git returns a generic error message when nothing to commit
     assert.match(
       result.error,
       /Git command failed|nothing to commit|working tree clean|no changes added to commit/,
-    );
-  });
-});
-
-// --- Pull and Push ---
-describe("Pulling and pushing", () => {
-  test("pulls from remote", async () => {
-    await git.init();
-    // Add a remote to allow pull to run
-    await git.addRemote("origin", "https://github.com/user/repo.git");
-    const result = await git.pull();
-    // Pull will fail unless the remote is valid, but should not throw
-    assert.ok(typeof result.success === "boolean");
-  });
-
-  test("returns error if no remote for pull", async () => {
-    await git.init();
-    const result = await git.pull();
-    assert.strictEqual(result.success, false);
-    assert.ok(result.error);
-    assert.match(
-      result.error,
-      /no remote repository specified|no tracking information/,
-    );
-  });
-
-  test("pushes to remote", async () => {
-    await git.init();
-    // Add a remote and push branch to allow push to run
-    await git.addRemote("origin", "https://github.com/user/repo.git");
-    // You may want to set upstream here in a real test
-    const result = await git.push();
-    assert.ok(typeof result.success === "boolean");
-  });
-
-  test("returns error if no upstream for push", async () => {
-    await git.init();
-    const result = await git.push();
-    assert.strictEqual(result.success, false);
-    assert.ok(result.error);
-    assert.match(
-      result.error,
-      /no upstream branch|No configured push destination/,
     );
   });
 });

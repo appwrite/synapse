@@ -39,6 +39,33 @@ export class Git {
       const git = spawn("git", args, { cwd: this.workDir });
       let output = "";
       let errorOutput = "";
+      let resolved = false;
+
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          git.kill("SIGTERM");
+
+          setTimeout(() => {
+            if (!git.killed) {
+              git.kill("SIGKILL");
+            }
+          }, 1000);
+
+          resolve({
+            success: false,
+            error: `Git command timed out after 5 seconds: git ${args.join(" ")}`,
+          });
+        }
+      }, 5000);
+
+      const resolveOnce = (result: GitOperationResult) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          resolve(result);
+        }
+      };
 
       git.stdout.on("data", (data) => {
         output += data.toString();
@@ -49,7 +76,7 @@ export class Git {
       });
 
       git.on("error", (error: Error) => {
-        resolve({
+        resolveOnce({
           success: false,
           error: `Failed to execute git command: ${error.message}`,
         });
@@ -57,12 +84,12 @@ export class Git {
 
       git.on("close", (code) => {
         if (code !== 0) {
-          resolve({
+          resolveOnce({
             success: false,
             error: errorOutput.trim() || "Git command failed",
           });
         } else {
-          resolve({ success: true, data: output.trim() });
+          resolveOnce({ success: true, data: output.trim() });
         }
       });
     });
