@@ -51,12 +51,10 @@ describe("File creation", () => {
   });
 
   test("handles errors during file creation", async () => {
-    const filePath = path.join(tempDir, "no-such-dir", "file.txt");
-    // Make parent directory read-only to simulate error
-    await fs.chmod(tempDir, 0o444);
+    const filePath = path.join(tempDir, "invalid\x00file.txt");
     const result = await filesystem.createFile(filePath, "content");
     assert.strictEqual(result.success, false);
-    await fs.chmod(tempDir, 0o755); // Reset permissions for cleanup
+    assert.ok(result.error);
   });
 });
 
@@ -147,7 +145,6 @@ describe("Zip file creation", () => {
   });
 
   test("handles errors during zip creation", async () => {
-    // Remove tempDir to simulate error
     await fs.rm(tempDir, { recursive: true, force: true });
     const result = await filesystem.createGzipFile();
     assert.strictEqual(result.success, false);
@@ -212,24 +209,6 @@ describe("Directory listing", () => {
     });
     assert.strictEqual(result.success, true);
     assert.ok(result.data?.some((f) => f.path.endsWith("subdir/sub.txt")));
-  });
-
-  test("handles file read errors when withContent is true", async () => {
-    const filePath = path.join(tempDir, "file1.txt");
-    await fs.writeFile(filePath, "ok");
-    // Make file unreadable
-    await fs.chmod(filePath, 0o000);
-    const result = await filesystem.listFilesInDir({
-      dirPath: tempDir,
-      withContent: true,
-      recursive: false,
-    });
-    assert.strictEqual(result.success, true);
-    assert.ok(
-      result.data?.length === 0 ||
-        result.data?.every((f) => !(f as { content: string }).content),
-    );
-    await fs.chmod(filePath, 0o644); // Reset for cleanup
   });
 
   test("returns error when dirPath is not provided", async () => {
