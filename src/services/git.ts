@@ -12,13 +12,14 @@ export type GitOperationResult = {
 export class Git {
   private synapse: Synapse;
   private workDir: string;
-
+  private timeout: number;
   /**
    * Creates a new Git instance
    * @param synapse - The Synapse instance to use
    */
-  constructor(synapse: Synapse, workDir?: string) {
+  constructor(synapse: Synapse, workDir?: string, timeout: number = 5000) {
     this.synapse = synapse;
+    this.timeout = timeout;
 
     if (workDir) {
       if (!fs.existsSync(workDir)) {
@@ -54,10 +55,10 @@ export class Git {
 
           resolve({
             success: false,
-            error: `Git command timed out after 5 seconds: git ${args.join(" ")}`,
+            error: `Git command timed out after ${this.timeout} seconds: git ${args.join(" ")}`,
           });
         }
-      }, 5000);
+      }, this.timeout);
 
       const resolveOnce = (result: GitOperationResult) => {
         if (!resolved) {
