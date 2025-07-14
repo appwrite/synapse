@@ -23,12 +23,6 @@ export type RelevantDocument = {
   similarity: number;
 };
 
-export type EmbeddingsConstructorParams = {
-  synapse: Synapse;
-  workDir: string;
-  embeddingAdapter: EmbeddingAdapter;
-};
-
 export class Embeddings {
   private synapse: Synapse;
   private workDir: string;
@@ -39,11 +33,11 @@ export class Embeddings {
   private isWatching: boolean = false;
   private processingQueue: Set<string> = new Set();
 
-  constructor({
-    synapse,
-    workDir,
-    embeddingAdapter,
-  }: EmbeddingsConstructorParams) {
+  constructor(
+    synapse: Synapse,
+    workDir: string,
+    embeddingAdapter: EmbeddingAdapter,
+  ) {
     this.synapse = synapse;
     this.embeddingAdapter = embeddingAdapter;
 
