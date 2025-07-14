@@ -40,7 +40,7 @@ test("Appwrite initialization check", () => {
 test("Appwrite service call: error when not initialized", async () => {
   const appwrite = new Appwrite(new Synapse());
   await assert.rejects(
-    () => appwrite.call("users", "list"),
+    () => appwrite.call({ service: "users", method: "list" }),
     /Appwrite SDK is not properly initialized/,
   );
 });
@@ -48,7 +48,7 @@ test("Appwrite service call: error when not initialized", async () => {
 test("Appwrite service call: error for non-existent service", async () => {
   const appwrite = createAppwrite();
   await assert.rejects(
-    () => appwrite.call("nonexistent", "list"),
+    () => appwrite.call({ service: "nonexistent", method: "list" }),
     /Service 'nonexistent' does not exist in Appwrite SDK/,
   );
 });
@@ -57,8 +57,10 @@ test("Appwrite service call: users.list", async () => {
   const appwrite = createAppwrite();
   await assert.rejects(
     () =>
-      appwrite.call("users", "list", {
-        queries: ['{"method":"limit","values":[25]}'],
+      appwrite.call({
+        service: "users",
+        method: "list",
+        args: { queries: ['{"method":"limit","values":[25]}'] },
       }),
     /The current user is not authorized to perform the requested action/,
   );

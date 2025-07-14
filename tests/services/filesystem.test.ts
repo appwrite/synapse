@@ -32,7 +32,7 @@ describe("File creation", () => {
   test("creates a new file successfully", async () => {
     const filePath = path.join(tempDir, "file.txt");
     const content = "test content";
-    const result = await filesystem.createFile(filePath, content);
+    const result = await filesystem.createFile({ filePath, content });
     assert.deepEqual(result, {
       success: true,
       data: "File created successfully",
@@ -43,7 +43,10 @@ describe("File creation", () => {
   test("returns error if file already exists", async () => {
     const filePath = path.join(tempDir, "existing.txt");
     await fs.writeFile(filePath, "already here");
-    const result = await filesystem.createFile(filePath, "new content");
+    const result = await filesystem.createFile({
+      filePath,
+      content: "new content",
+    });
     assert.deepEqual(result, {
       success: false,
       error: `File already exists at path: ${filePath}`,
@@ -52,7 +55,10 @@ describe("File creation", () => {
 
   test("handles errors during file creation", async () => {
     const filePath = path.join(tempDir, "invalid\x00file.txt");
-    const result = await filesystem.createFile(filePath, "content");
+    const result = await filesystem.createFile({
+      filePath,
+      content: "content",
+    });
     assert.strictEqual(result.success, false);
     assert.ok(result.error);
   });
@@ -64,7 +70,7 @@ describe("File reading", () => {
     const filePath = path.join(tempDir, "file.txt");
     const content = "test content";
     await fs.writeFile(filePath, content);
-    const result = await filesystem.getFile(filePath);
+    const result = await filesystem.getFile({ filePath });
     assert.deepEqual(result, {
       success: true,
       data: {
@@ -76,7 +82,7 @@ describe("File reading", () => {
 
   test("handles file reading errors", async () => {
     const filePath = path.join(tempDir, "nonexistent.txt");
-    const result = await filesystem.getFile(filePath);
+    const result = await filesystem.getFile({ filePath });
     assert.strictEqual(result.success, false);
     assert.match(result.error!, /no such file/i);
   });
@@ -87,7 +93,7 @@ describe("File appending", () => {
   test("appends content to a file", async () => {
     const filePath = path.join(tempDir, "file.txt");
     await fs.writeFile(filePath, "start");
-    const result = await filesystem.appendFile(filePath, " end");
+    const result = await filesystem.appendFile({ filePath, content: " end" });
     assert.deepEqual(result, { success: true });
     assert.strictEqual(await fs.readFile(filePath, "utf-8"), "start end");
   });
@@ -100,13 +106,13 @@ describe("File searching", () => {
     await fs.writeFile(path.join(tempDir, "bar.md"), "search me");
     await fs.writeFile(path.join(tempDir, "baz.txt"), "nothing here");
 
-    let results = await filesystem.searchFiles("foo");
+    let results = await filesystem.searchFiles({ term: "foo" });
     assert.ok(results.data?.results.some((r) => r.path === "foo.txt"));
 
-    results = await filesystem.searchFiles("search me");
+    results = await filesystem.searchFiles({ term: "search me" });
     assert.ok(results.data?.results.some((r) => r.path === "bar.md"));
 
-    results = await filesystem.searchFiles("notfound");
+    results = await filesystem.searchFiles({ term: "notfound" });
     assert.deepEqual(results.data?.results, []);
   });
 });
@@ -136,7 +142,7 @@ describe("Zip file creation", () => {
   test("creates a tar.gz file and saves it to disk", async () => {
     await fs.writeFile(path.join(tempDir, "file1.txt"), "one");
     const outFile = "test.tar.gz";
-    const result = await filesystem.createGzipFile(outFile);
+    const result = await filesystem.createGzipFile({ saveAs: outFile });
     assert.strictEqual(result.success, true);
     const outPath = path.join(tempDir, outFile);
     assert.ok(fsSync.existsSync(outPath));

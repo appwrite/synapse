@@ -55,13 +55,13 @@ describe("Connection management", () => {
 
   test("throws error when sending to non-existent connection", () => {
     assert.throws(() => {
-      synapse.sendToConnection("non-existent", "test", {});
+      synapse.sendToConnection({ connectionId: "non-existent", type: "test" });
     }, /WebSocket connection .* is not connected/);
   });
 
   test("throws error when sending with promise to non-existent connection", async () => {
     await assert.rejects(
-      () => synapse.send("non-existent", "test", {}),
+      () => synapse.send({ connectionId: "non-existent", type: "test" }),
       /WebSocket connection .* is not connected/,
     );
   });
@@ -95,7 +95,10 @@ describe("Message handling", () => {
   });
 
   test("returns empty array when broadcasting to no connections", () => {
-    const promises = synapse.broadcast("test", { data: "test" });
+    const promises = synapse.broadcast({
+      type: "test",
+      payload: { data: "test" },
+    });
     assert.deepEqual(promises, []);
   });
 });
