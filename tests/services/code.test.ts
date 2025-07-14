@@ -14,7 +14,10 @@ describe("formatting JavaScript code", () => {
     const input = "const x=1;const y=2;";
     const expected = "const x = 1;\nconst y = 2;\n";
 
-    const result = await code.format(input, { language: "javascript" });
+    const result = await code.format({
+      code: input,
+      options: { language: "javascript" },
+    });
 
     assert.deepEqual(result, {
       success: true,
@@ -28,12 +31,15 @@ describe("formatting TypeScript code", () => {
     const input = "const x:number=1;";
     const expected = "const x: number = 1\n";
 
-    const result = await code.format(input, {
-      language: "typescript",
-      indent: 4,
-      useTabs: true,
-      semi: false,
-      singleQuote: true,
+    const result = await code.format({
+      code: input,
+      options: {
+        language: "typescript",
+        indent: 4,
+        useTabs: true,
+        semi: false,
+        singleQuote: true,
+      },
     });
 
     assert.deepEqual(result, {
@@ -47,9 +53,12 @@ describe("linting JavaScript code for errors", () => {
   test("reports unused variable as an error", async () => {
     const input = "const x = 1;";
 
-    const result = await code.lint(input, {
-      language: "javascript",
-      rules: { "no-unused-vars": "error" },
+    const result = await code.lint({
+      code: input,
+      options: {
+        language: "javascript",
+        rules: { "no-unused-vars": "error" },
+      },
     });
 
     assert.strictEqual(result.success, true);
@@ -68,9 +77,12 @@ describe("linting JavaScript code for warnings", () => {
   test("warns on console statements", async () => {
     const input = 'console.log("test");';
 
-    const result = await code.lint(input, {
-      language: "javascript",
-      rules: { "no-console": "warn" },
+    const result = await code.lint({
+      code: input,
+      options: {
+        language: "javascript",
+        rules: { "no-console": "warn" },
+      },
     });
 
     assert.strictEqual(result.success, true);

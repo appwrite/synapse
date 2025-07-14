@@ -49,11 +49,11 @@ let embeddings: Embeddings;
 
 beforeEach(async () => {
   tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "embeddings-test-"));
-  embeddings = new Embeddings(
-    new Synapse(),
-    tempDir,
-    new DummyEmbeddingAdapter(),
-  );
+  embeddings = new Embeddings({
+    synapse: new Synapse(),
+    workDir: tempDir,
+    embeddingAdapter: new DummyEmbeddingAdapter(),
+  });
 });
 
 afterEach(async () => {
@@ -120,7 +120,11 @@ describe("document relevance search", () => {
 describe("embedding adapter lifecycle", () => {
   test("initializes and cleans up adapter correctly", async () => {
     const adapter = new DummyEmbeddingAdapter();
-    const emb = new Embeddings(new Synapse(), tempDir, adapter);
+    const emb = new Embeddings({
+      synapse: new Synapse(),
+      workDir: tempDir,
+      embeddingAdapter: adapter,
+    });
     await emb.startWatching();
     assert.ok(adapter.isInitialized());
     await emb.dispose();

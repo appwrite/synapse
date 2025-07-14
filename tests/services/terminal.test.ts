@@ -84,7 +84,10 @@ describe("Terminal operations", () => {
 
 describe("Command execution", () => {
   test("successfully executes a command", async () => {
-    const result = await terminal.executeCommand("echo hello", "/tmp");
+    const result = await terminal.executeCommand({
+      command: "echo hello",
+      cwd: "/tmp",
+    });
     assert.deepEqual(result, {
       output: "hello\n",
       exitCode: 0,
@@ -92,22 +95,18 @@ describe("Command execution", () => {
   });
 
   test("handles command execution errors", async () => {
-    const result = await terminal.executeCommand("invalid-command", "/tmp");
+    const result = await terminal.executeCommand({
+      command: "invalid-command",
+      cwd: "/tmp",
+    });
     assert.strictEqual(typeof result.output, "string");
     assert.strictEqual(result.exitCode, 1);
   });
 
   test("throws error when command is not provided", async () => {
     await assert.rejects(
-      () => terminal.executeCommand("", "/tmp"),
+      () => terminal.executeCommand({ command: "", cwd: "/tmp" }),
       /Command is required/,
-    );
-  });
-
-  test("throws error when cwd is not provided", async () => {
-    await assert.rejects(
-      () => terminal.executeCommand("echo hello", ""),
-      /cwd is required/,
     );
   });
 });

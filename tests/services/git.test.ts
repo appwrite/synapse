@@ -24,8 +24,8 @@ afterEach(async () => {
 });
 
 async function configureGitUser(): Promise<void> {
-  await git.setUserName("Test User");
-  await git.setUserEmail("test@example.com");
+  await git.setUserName({ name: "Test User" });
+  await git.setUserEmail({ email: "test@example.com" });
 }
 
 // --- Git Repository Initialization ---
@@ -51,7 +51,7 @@ describe("Git repository initialization", () => {
   test("allows changing working directory", async () => {
     const newDir = path.join(tempDir, "another-project");
     await fs.mkdir(newDir);
-    git.updateWorkDir(newDir);
+    git.updateWorkDir({ workDir: newDir });
     const result = await git.init();
     assert.strictEqual(result.success, true);
     assert.ok(fsSync.existsSync(path.join(newDir, ".git")));
@@ -62,20 +62,23 @@ describe("Git repository initialization", () => {
 describe("Git remote management", () => {
   test("adds a new remote successfully", async () => {
     await git.init();
-    const result = await git.addRemote(
-      "origin",
-      "https://github.com/user/repo.git",
-    );
+    const result = await git.addRemote({
+      name: "origin",
+      url: "https://github.com/user/repo.git",
+    });
     assert.strictEqual(result.success, true);
   });
 
   test("returns error if remote already exists", async () => {
     await git.init();
-    await git.addRemote("origin", "https://github.com/user/repo.git");
-    const result = await git.addRemote(
-      "origin",
-      "https://github.com/user/repo.git",
-    );
+    await git.addRemote({
+      name: "origin",
+      url: "https://github.com/user/repo.git",
+    });
+    const result = await git.addRemote({
+      name: "origin",
+      url: "https://github.com/user/repo.git",
+    });
     assert.strictEqual(result.success, false);
     assert.ok(result.error);
     assert.match(result.error, /remote origin already exists/);
@@ -89,8 +92,8 @@ describe("Branch and status operations", () => {
     await configureGitUser();
     const filePath = path.join(tempDir, "init.txt");
     await fs.writeFile(filePath, "initial");
-    await git.add(["init.txt"]);
-    await git.commit("Initial commit");
+    await git.add({ files: ["init.txt"] });
+    await git.commit({ message: "Initial commit" });
 
     const result = await git.getCurrentBranch();
     assert.strictEqual(result.success, true);
@@ -119,13 +122,13 @@ describe("File staging", () => {
     await git.init();
     const filePath = path.join(tempDir, "file1.txt");
     await fs.writeFile(filePath, "content");
-    const result = await git.add(["file1.txt"]);
+    const result = await git.add({ files: ["file1.txt"] });
     assert.strictEqual(result.success, true);
   });
 
   test("returns error for non-existent files", async () => {
     await git.init();
-    const result = await git.add(["nonexistent.txt"]);
+    const result = await git.add({ files: ["nonexistent.txt"] });
     assert.strictEqual(result.success, false);
     assert.ok(result.error);
     assert.match(result.error, /did not match any files/);
@@ -139,8 +142,8 @@ describe("Committing changes", () => {
     await configureGitUser();
     const filePath = path.join(tempDir, "file.txt");
     await fs.writeFile(filePath, "commit me");
-    await git.add(["file.txt"]);
-    const result = await git.commit("test commit");
+    await git.add({ files: ["file.txt"] });
+    const result = await git.commit({ message: "test commit" });
     assert.strictEqual(result.success, true);
     assert.ok(result.data);
     assert.match(result.data, /\[.*\] test commit/);
@@ -149,7 +152,7 @@ describe("Committing changes", () => {
   test("returns error when nothing to commit", async () => {
     await git.init();
     await configureGitUser();
-    const result = await git.commit("test commit");
+    const result = await git.commit({ message: "test commit" });
     assert.strictEqual(result.success, false);
     assert.ok(result.error);
     assert.match(

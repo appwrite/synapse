@@ -152,11 +152,18 @@ export class Git {
 
   /**
    * Add a remote repository
-   * @param name - The name of the remote (e.g., "origin")
-   * @param url - The URL of the remote repository
+   * @param params - Object containing remote repository parameters
+   * @param params.name - The name of the remote (e.g., "origin")
+   * @param params.url - The URL of the remote repository
    * @returns The output of the git remote add command
    */
-  async addRemote(name: string, url: string): Promise<GitOperationResult> {
+  async addRemote({
+    name,
+    url,
+  }: {
+    name: string;
+    url: string;
+  }): Promise<GitOperationResult> {
     return this.execute(["remote", "add", name, url]);
   }
 
@@ -170,19 +177,25 @@ export class Git {
 
   /**
    * Set Git user name
-   * @param name - The user name to set for Git
+   * @param params - Object containing user name parameters
+   * @param params.name - The user name to set for Git
    * @returns The output of the git config command
    */
-  async setUserName(name: string): Promise<GitOperationResult> {
+  async setUserName({ name }: { name: string }): Promise<GitOperationResult> {
     return this.execute(["config", "user.name", name]);
   }
 
   /**
    * Set Git user email
-   * @param email - The email to set for Git
+   * @param params - Object containing user email parameters
+   * @param params.email - The email to set for Git
    * @returns The output of the git config command
    */
-  async setUserEmail(email: string): Promise<GitOperationResult> {
+  async setUserEmail({
+    email,
+  }: {
+    email: string;
+  }): Promise<GitOperationResult> {
     return this.execute(["config", "user.email", email]);
   }
 
@@ -196,43 +209,48 @@ export class Git {
 
   /**
    * Add files to staging
-   * @param files - The files to add to staging
+   * @param params - Object containing file addition parameters
+   * @param params.files - The files to add to staging
    * @returns The output of the git add command
    */
-  async add(files: string[]): Promise<GitOperationResult> {
+  async add({ files }: { files: string[] }): Promise<GitOperationResult> {
     return this.execute(["add", ...files]);
   }
 
   /**
    * Commit changes
-   * @param message - The commit message
+   * @param params - Object containing commit message parameters
+   * @param params.message - The commit message
    * @returns The output of the git commit command
    */
-  async commit(message: string): Promise<GitOperationResult> {
+  async commit({ message }: { message: string }): Promise<GitOperationResult> {
     return this.execute(["commit", "-m", message]);
   }
 
   /**
    * Pull changes from remote
+   * @param params - Object containing pull parameters
+   * @param params.branch - The branch to pull from
    * @returns The output of the git pull command
    */
-  async pull(): Promise<GitOperationResult> {
-    return this.execute(["pull"]);
+  async pull({ branch }: { branch?: string }): Promise<GitOperationResult> {
+    return this.execute(["pull", branch || ""]);
   }
 
   /**
    * Push changes to remote
    * @returns The output of the git push command
    */
-  async push(): Promise<GitOperationResult> {
-    return this.execute(["push"]);
+  async push({ branch }: { branch?: string }): Promise<GitOperationResult> {
+    return this.execute(["push", branch || ""]);
   }
 
   /**
    * Updates the working directory
-   * @param workDir - The new working directory
+   * @param params - Object containing working directory update parameters
+   * @param params.workDir - The new working directory
    */
-  updateWorkDir(workDir: string): void {
+  updateWorkDir({ workDir }: { workDir: string }): void {
     if (!fs.existsSync(workDir)) {
       fs.mkdirSync(workDir, { recursive: true });
     }

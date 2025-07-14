@@ -46,7 +46,7 @@ Follow these steps to set up your development environment:
 Our tests are designed to run in a containerized environment for consistency. You can execute them locally with Docker:
 
 ```bash
-docker run -it --rm -v $(pwd):/app -w /app node:20-alpine sh -c "npm install && npm run build:test && npm run test"
+docker run -it --rm -v $(pwd):/app -w /app node:20 sh -c "npm ci && npm run build:test && npm run test"
 ```
 
 Alternatively, use the [act](https://github.com/nektos/act) tool to simulate GitHub Actions locally:

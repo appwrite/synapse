@@ -12,6 +12,12 @@ export type TerminalOptions = {
   workDir: string;
 };
 
+export type ExecuteCommandParams = {
+  command: string;
+  cwd?: string;
+  timeout?: number;
+};
+
 export class Terminal {
   private synapse: Synapse;
   private term: pty.IPty | null = null;
@@ -139,17 +145,13 @@ export class Terminal {
     }
   }
 
-  async executeCommand(
-    command: string,
-    cwd: string,
-    timeout: number = 5000,
-  ): Promise<{ output: string; exitCode: number }> {
+  async executeCommand({
+    command,
+    cwd = process.cwd(),
+    timeout = 5000,
+  }: ExecuteCommandParams): Promise<{ output: string; exitCode: number }> {
     if (!command) {
       throw new Error("Command is required");
-    }
-
-    if (!cwd) {
-      throw new Error("cwd is required");
     }
 
     try {
