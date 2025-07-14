@@ -644,10 +644,9 @@ export class Filesystem {
 
   /**
    * Updates the working directory
-   * @param params - Object containing working directory update parameters
-   * @param params.workDir - The new working directory
+   * @param workDir - The new working directory
    */
-  updateWorkDir({ workDir }: { workDir: string }): void {
+  updateWorkDir(workDir: string): void {
     if (!fsSync.existsSync(workDir)) {
       fsSync.mkdirSync(workDir, { recursive: true });
     }

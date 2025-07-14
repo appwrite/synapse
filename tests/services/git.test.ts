@@ -51,7 +51,7 @@ describe("Git repository initialization", () => {
   test("allows changing working directory", async () => {
     const newDir = path.join(tempDir, "another-project");
     await fs.mkdir(newDir);
-    git.updateWorkDir({ workDir: newDir });
+    git.updateWorkDir(newDir);
     const result = await git.init();
     assert.strictEqual(result.success, true);
     assert.ok(fsSync.existsSync(path.join(newDir, ".git")));
