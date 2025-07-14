@@ -249,10 +249,9 @@ export class Git {
 
   /**
    * Updates the working directory
-   * @param params - Object containing working directory update parameters
-   * @param params.workDir - The new working directory
+   * @param workDir - The new working directory
    */
-  updateWorkDir({ workDir }: { workDir: string }): void {
+  updateWorkDir(workDir: string): void {
     if (!fs.existsSync(workDir)) {
       fs.mkdirSync(workDir, { recursive: true });
     }
