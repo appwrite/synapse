@@ -234,7 +234,8 @@ export class Git {
    * @returns The output of the git pull command
    */
   async pull({ branch }: { branch?: string }): Promise<GitOperationResult> {
-    return this.execute(["pull", branch || ""]);
+    const args = branch ? ["pull", branch] : ["pull"];
+    return this.execute(args);
   }
 
   /**
@@ -242,7 +243,8 @@ export class Git {
    * @returns The output of the git push command
    */
   async push({ branch }: { branch?: string }): Promise<GitOperationResult> {
-    return this.execute(["push", branch || ""]);
+    const args = branch ? ["push", branch] : ["push"];
+    return this.execute(args);
   }
 
   /**
