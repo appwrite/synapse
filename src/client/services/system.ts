@@ -1,4 +1,4 @@
-import { SynapseRequest, SynapseResponse, BaseHTTPClient } from "../base";
+import { SynapseResponse, BaseHTTPClient } from "../base";
 
 export type SystemUsageData = {
   cpuCores: number;
