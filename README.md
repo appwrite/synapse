@@ -165,6 +165,34 @@ if (lintResult.issues.length > 0) {
 }
 ```
 
+### HTTP Client
+
+For environments where WebSocket connections aren't suitable, you can use the HTTP client:
+
+```typescript
+import { createSynapseHTTPClient } from "@appwrite.io/synapse";
+
+// Create HTTP client
+const client = createSynapseHTTPClient({
+  endpoint: "https://your-synapse-server.com",
+  artifactId: "your-artifact-id",
+  baseDir: "/optional/base/directory"
+});
+
+// File operations
+const fileContent = await client.readFile({ path: "/path/to/file.txt" });
+await client.createFile({ path: "/path/to/new-file.txt", content: "Hello!" });
+
+// Execute commands
+const result = await client.executeCommand({ 
+  command: "ls -la",
+  workingDirectory: "/path/to/dir"
+});
+
+// Git operations
+await client.git({ operation: "status" });
+```
+
 ### Event handling
 
 ```typescript
