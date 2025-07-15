@@ -225,7 +225,7 @@ export class FilesystemHTTPService extends BaseHTTPClient {
       // Clean up the paths to be relative to the artifact base path
       const cleanedData = response.data.map((file: any) => ({
         ...file,
-        path: file.path.replace(`${this.artifactBasePath}/`, ""),
+        path: path.relative(this.artifactBasePath, file.path),
       }));
 
       return {
