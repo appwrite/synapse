@@ -176,7 +176,7 @@ import { createSynapseHTTPClient } from "@appwrite.io/synapse";
 const client = createSynapseHTTPClient({
   endpoint: "https://your-synapse-server.com",
   artifactId: "your-artifact-id",
-  baseDir: "/optional/base/directory"
+  baseDir: "/optional/base/directory",
 });
 
 // File operations
@@ -184,9 +184,9 @@ const fileContent = await client.readFile({ path: "/path/to/file.txt" });
 await client.createFile({ path: "/path/to/new-file.txt", content: "Hello!" });
 
 // Execute commands
-const result = await client.executeCommand({ 
+const result = await client.executeCommand({
   command: "ls -la",
-  workingDirectory: "/path/to/dir"
+  workingDirectory: "/path/to/dir",
 });
 
 // Git operations

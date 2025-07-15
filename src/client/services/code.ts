@@ -1,4 +1,4 @@
-import { SynapseRequest, SynapseResponse } from "../base";
+import { BaseHTTPClient, SynapseResponse } from "../base";
 
 export type FormatOptions = {
   language: string;
@@ -26,11 +26,9 @@ export type LintResult = {
   }>;
 };
 
-export class CodeHTTPService {
-  private endpoint: string;
-
+export class CodeHTTPService extends BaseHTTPClient {
   constructor({ endpoint }: { endpoint: string }) {
-    this.endpoint = endpoint;
+    super({ endpoint });
   }
 
   /**
@@ -71,31 +69,5 @@ export class CodeHTTPService {
         language,
       },
     });
-  }
-
-  private async request<T = any>(
-    body: SynapseRequest,
-  ): Promise<SynapseResponse<T>> {
-    try {
-      const response = await fetch(this.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = (await response.json()) as SynapseResponse<T>;
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
   }
 }

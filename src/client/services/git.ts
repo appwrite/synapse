@@ -1,4 +1,4 @@
-import { SynapseRequest, SynapseResponse } from "../base";
+import { SynapseResponse, BaseHTTPClient } from "../base";
 
 export type GitOperationResult = {
   success: boolean;
@@ -29,11 +29,9 @@ export type GitParams = {
   options?: Record<string, any>;
 };
 
-export class GitHTTPService {
-  private endpoint: string;
-
+export class GitHTTPService extends BaseHTTPClient {
   constructor({ endpoint }: { endpoint: string }) {
-    this.endpoint = endpoint;
+    super({ endpoint });
   }
 
   /**
@@ -58,31 +56,5 @@ export class GitHTTPService {
         options,
       },
     });
-  }
-
-  private async request<T = any>(
-    body: SynapseRequest,
-  ): Promise<SynapseResponse<T>> {
-    try {
-      const response = await fetch(this.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = (await response.json()) as SynapseResponse<T>;
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
   }
 }
