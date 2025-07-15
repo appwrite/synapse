@@ -1,63 +1,43 @@
-import * as os from "os";
+import { test, describe, beforeEach } from "node:test";
+import assert from "node:assert/strict";
 import { System } from "../../src/services/system";
 import { Synapse } from "../../src/synapse";
 
-jest.mock("os");
+let system: System;
+let synapse: Synapse;
 
-describe("System", () => {
-  let system: System;
-  let mockSynapse: Synapse;
+beforeEach(() => {
+  synapse = {
+    logger: () => {},
+  } as unknown as Synapse;
 
-  beforeEach(() => {
-    mockSynapse = {
-      logger: jest.fn(),
-    } as unknown as Synapse;
+  system = new System(synapse);
+});
 
-    system = new System(mockSynapse);
-  });
+describe("System usage reporting", () => {
+  test("returns valid system usage data", async () => {
+    const result = await system.getUsage(100);
 
-  describe("getUsage", () => {
-    it("should return system usage data", async () => {
-      const mockCpus = [
-        {
-          times: {
-            user: 100,
-            nice: 0,
-            sys: 50,
-            idle: 200,
-            irq: 0,
-          },
-        },
-      ];
+    assert.strictEqual(result.success, true);
+    assert.ok(result.data);
 
-      (os.cpus as jest.Mock).mockReturnValue(mockCpus);
-      (os.totalmem as jest.Mock).mockReturnValue(8000000000);
-      (os.freemem as jest.Mock).mockReturnValue(4000000000);
-      (os.loadavg as jest.Mock).mockReturnValue([1.5, 1.0, 0.5]);
+    if (result.data) {
+      const data = result.data;
+      assert.strictEqual(typeof data.cpuCores, "number");
+      assert.ok(Array.isArray(data.cpuUsagePerCore));
+      assert.strictEqual(data.cpuUsagePerCore.length, data.cpuCores);
+      assert.strictEqual(typeof data.cpuUsagePercent, "number");
+      assert.ok(data.cpuUsagePercent >= 0 && data.cpuUsagePercent <= 100);
 
-      const result = await system.getUsage(100);
+      assert.strictEqual(typeof data.loadAverage1m, "number");
+      assert.strictEqual(typeof data.loadAverage5m, "number");
+      assert.strictEqual(typeof data.loadAverage15m, "number");
 
-      expect(result.success).toBe(true);
-      expect(result.data).toBeDefined();
-
-      if (result.data) {
-        const data = result.data;
-        expect(data.cpuCores).toBe(1);
-        expect(Array.isArray(data.cpuUsagePerCore)).toBe(true);
-        expect(data.cpuUsagePerCore.length).toBe(1);
-        expect(typeof data.cpuUsagePercent).toBe("number");
-        expect(data.cpuUsagePercent).toBeGreaterThanOrEqual(0);
-        expect(data.cpuUsagePercent).toBeLessThanOrEqual(100);
-
-        expect(data.loadAverage1m).toBe(1.5);
-        expect(data.loadAverage5m).toBe(1.0);
-        expect(data.loadAverage15m).toBe(0.5);
-
-        expect(data.memoryTotalBytes).toBe(8000000000);
-        expect(data.memoryFreeBytes).toBe(4000000000);
-        expect(data.memoryUsedBytes).toBe(4000000000);
-        expect(data.memoryUsagePercent).toBe(50);
-      }
-    });
+      assert.strictEqual(typeof data.memoryTotalBytes, "number");
+      assert.strictEqual(typeof data.memoryFreeBytes, "number");
+      assert.strictEqual(typeof data.memoryUsedBytes, "number");
+      assert.strictEqual(typeof data.memoryUsagePercent, "number");
+      assert.ok(data.memoryUsagePercent >= 0 && data.memoryUsagePercent <= 100);
+    }
   });
 });

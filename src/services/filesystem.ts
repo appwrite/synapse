@@ -120,15 +120,19 @@ export class Filesystem {
   /**
    * Creates a new file at the specified path with optional content.
    * Fails if the file already exists.
-   * @param filePath - The full path where the file should be created
-   * @param content - Optional content to write to the file (defaults to empty string)
+   * @param params - Object containing file creation parameters
+   * @param params.filePath - The full path where the file should be created
+   * @param params.content - Optional content to write to the file (defaults to empty string)
    * @returns Promise<FileOperationResult> indicating success or failure
    * @throws Error if file creation fails for reasons other than existence
    */
-  async createFile(
-    filePath: string,
-    content: string = "",
-  ): Promise<FileOperationResult> {
+  async createFile({
+    filePath,
+    content = "",
+  }: {
+    filePath: string;
+    content?: string;
+  }): Promise<FileOperationResult> {
     if (!filePath) {
       return { success: false, error: "filePath is required" };
     }
@@ -145,7 +149,7 @@ export class Filesystem {
       if ((accessError as NodeJS.ErrnoException)?.code === "ENOENT") {
         try {
           const dirPath = path.dirname(filePath);
-          const folderResult = await this.createFolder(dirPath);
+          const folderResult = await this.createFolder({ dirPath });
           if (!folderResult.success) {
             this.log(
               `Failed to create parent directory for ${filePath}: ${folderResult.error}`,
@@ -186,11 +190,12 @@ export class Filesystem {
 
   /**
    * Reads and returns the contents of a file
-   * @param filePath - The path to the file to read
+   * @param params - Object containing file reading parameters
+   * @param params.filePath - The path to the file to read
    * @returns Promise<FileOperationResult> containing the file content in the data property
    * @throws Error if file reading fails
    */
-  async getFile(filePath: string): Promise<FileContent> {
+  async getFile({ filePath }: { filePath: string }): Promise<FileContent> {
     if (!filePath) {
       return { success: false, error: "filePath is required" };
     }
@@ -221,15 +226,19 @@ export class Filesystem {
 
   /**
    * Updates the content of a file
-   * @param filePath - The path to the file to update
-   * @param content - The new content to write to the file
+   * @param params - Object containing file update parameters
+   * @param params.filePath - The path to the file to update
+   * @param params.content - The new content to write to the file
    * @returns Promise<FileOperationResult> indicating success or failure
    * @throws Error if file update fails
    */
-  async updateFile(
-    filePath: string,
-    content: string,
-  ): Promise<FileOperationResult> {
+  async updateFile({
+    filePath,
+    content,
+  }: {
+    filePath: string;
+    content: string;
+  }): Promise<FileOperationResult> {
     if (!filePath) {
       return { success: false, error: "filePath is required" };
     }
@@ -239,7 +248,7 @@ export class Filesystem {
       const fullPath = this.resolvePath(filePath);
       const dirPath = path.dirname(filePath);
 
-      await this.createFolder(dirPath);
+      await this.createFolder({ dirPath });
       await fs.writeFile(fullPath, content);
 
       return { success: true };
@@ -256,15 +265,19 @@ export class Filesystem {
 
   /**
    * Appends content to a file
-   * @param filePath - The path to the file to append to
-   * @param content - The content to append to the file
+   * @param params - Object containing file append parameters
+   * @param params.filePath - The path to the file to append to
+   * @param params.content - The content to append to the file
    * @returns Promise<FileOperationResult> indicating success or failure
    * @throws Error if file appending fails
    */
-  async appendFile(
-    filePath: string,
-    content: string,
-  ): Promise<FileOperationResult> {
+  async appendFile({
+    filePath,
+    content,
+  }: {
+    filePath: string;
+    content: string;
+  }): Promise<FileOperationResult> {
     if (!filePath) {
       return { success: false, error: "filePath is required" };
     }
@@ -286,15 +299,19 @@ export class Filesystem {
 
   /**
    * Updates the path of a file
-   * @param oldPath - The old path of the file
-   * @param newPath - The new path of the file
+   * @param params - Object containing file path update parameters
+   * @param params.oldPath - The old path of the file
+   * @param params.newPath - The new path of the file
    * @returns Promise<FileOperationResult> indicating success or failure
    * @throws Error if file path update fails
    */
-  async updateFilePath(
-    oldPath: string,
-    newPath: string,
-  ): Promise<FileOperationResult> {
+  async updateFilePath({
+    oldPath,
+    newPath,
+  }: {
+    oldPath: string;
+    newPath: string;
+  }): Promise<FileOperationResult> {
     if (!oldPath || !newPath) {
       return { success: false, error: "oldPath and newPath are required" };
     }
@@ -330,11 +347,16 @@ export class Filesystem {
 
   /**
    * Deletes a file
-   * @param filePath - The path to the file to delete
+   * @param params - Object containing file deletion parameters
+   * @param params.filePath - The path to the file to delete
    * @returns Promise<FileOperationResult> indicating success or failure
    * @throws Error if file deletion fails
    */
-  async deleteFile(filePath: string): Promise<FileOperationResult> {
+  async deleteFile({
+    filePath,
+  }: {
+    filePath: string;
+  }): Promise<FileOperationResult> {
     if (!filePath) {
       return { success: false, error: "filePath is required" };
     }
@@ -359,11 +381,16 @@ export class Filesystem {
 
   /**
    * Creates a new directory and any necessary parent directories
-   * @param dirPath - The path where the directory should be created
+   * @param params - Object containing directory creation parameters
+   * @param params.dirPath - The path where the directory should be created
    * @returns Promise<FileOperationResult> indicating success or failure
    * @throws Error if directory creation fails
    */
-  async createFolder(dirPath: string): Promise<FileOperationResult> {
+  async createFolder({
+    dirPath,
+  }: {
+    dirPath: string;
+  }): Promise<FileOperationResult> {
     if (!dirPath) {
       return { success: false, error: "dirPath is required" };
     }
@@ -394,11 +421,12 @@ export class Filesystem {
 
   /**
    * Lists all files and directories in the specified directory
-   * @param dirPath - The path to the directory to read
+   * @param params - Object containing directory reading parameters
+   * @param params.dirPath - The path to the directory to read
    * @returns Promise<FileOperationResult> containing array of FileItems in the data property
    * @throws Error if directory reading fails
    */
-  async getFolder(dirPath: string): Promise<FileItemResult> {
+  async getFolder({ dirPath }: { dirPath: string }): Promise<FileItemResult> {
     if (!dirPath) {
       return { success: false, error: "dirPath is required" };
     }
@@ -427,15 +455,19 @@ export class Filesystem {
 
   /**
    * Updates the name of a folder
-   * @param dirPath - The path to the folder to rename
-   * @param name - The new name for the folder
+   * @param params - Object containing folder rename parameters
+   * @param params.dirPath - The path to the folder to rename
+   * @param params.name - The new name for the folder
    * @returns Promise<FileOperationResult> indicating success or failure
    * @throws Error if folder renaming fails
    */
-  async updateFolderName(
-    dirPath: string,
-    name: string,
-  ): Promise<FileOperationResult> {
+  async updateFolderName({
+    dirPath,
+    name,
+  }: {
+    dirPath: string;
+    name: string;
+  }): Promise<FileOperationResult> {
     if (!dirPath || !name) {
       return { success: false, error: "dirPath and name are required" };
     }
@@ -463,15 +495,19 @@ export class Filesystem {
 
   /**
    * Updates the path of a folder
-   * @param oldPath - The old path of the folder
-   * @param newPath - The new path of the folder
+   * @param params - Object containing folder path update parameters
+   * @param params.oldPath - The old path of the folder
+   * @param params.newPath - The new path of the folder
    * @returns Promise<FileOperationResult> indicating success or failure
    * @throws Error if folder path update fails
    */
-  async updateFolderPath(
-    oldPath: string,
-    newPath: string,
-  ): Promise<FileOperationResult> {
+  async updateFolderPath({
+    oldPath,
+    newPath,
+  }: {
+    oldPath: string;
+    newPath: string;
+  }): Promise<FileOperationResult> {
     if (!oldPath || !newPath) {
       return { success: false, error: "oldPath and newPath are required" };
     }
@@ -507,11 +543,16 @@ export class Filesystem {
 
   /**
    * Deletes a file or directory and all its contents
-   * @param dirPath - The path to the directory to delete
+   * @param params - Object containing directory deletion parameters
+   * @param params.dirPath - The path to the directory to delete
    * @returns Promise<FileOperationResult> indicating success or failure
    * @throws Error if deletion fails
    */
-  async deleteFolder(dirPath: string): Promise<FileOperationResult> {
+  async deleteFolder({
+    dirPath,
+  }: {
+    dirPath: string;
+  }): Promise<FileOperationResult> {
     if (!dirPath) {
       return { success: false, error: "dirPath is required" };
     }
@@ -649,10 +690,11 @@ export class Filesystem {
   /**
    * Searches for files in the current workDir based on a search term.
    * Matches both file paths and file contents.
-   * @param term - The term to search for in file paths or contents
+   * @param params - Object containing search parameters
+   * @param params.term - The term to search for in file paths or contents
    * @returns Promise<FileSearchResult> - List of matching file paths with row and column information
    */
-  async searchFiles(term: string): Promise<FileSearchResult> {
+  async searchFiles({ term }: { term: string }): Promise<FileSearchResult> {
     if (!term || term.trim() === "") {
       return { success: false, error: "Search `term` is required" };
     }
@@ -746,9 +788,15 @@ export class Filesystem {
 
   /**
    * Creates a gzip file containing all files in the workDir and returns it as a Buffer
+   * @param params - Object containing gzip creation parameters
+   * @param params.saveAs - Optional file path to save the gzip file
    * @returns Promise<ZipResult> containing the gzip file as a Buffer
    */
-  async createGzipFile(saveAs: string | null = null): Promise<ZipResult> {
+  async createGzipFile({
+    saveAs = null,
+  }: {
+    saveAs?: string | null;
+  } = {}): Promise<ZipResult> {
     if (!this.workDir) {
       return { success: false, error: "Work directory is not set" };
     }
@@ -843,9 +891,11 @@ export class Filesystem {
 
   /**
    * Lists all files in a directory with optional content and recursive traversal
-   * @param dirPath - The directory path to list files from
-   * @param withContent - Whether to include file content in the results
-   * @param recursive - Whether to recursively traverse subdirectories
+   * @param params - Object containing directory listing parameters
+   * @param params.dirPath - The directory path to list files from
+   * @param params.withContent - Whether to include file content in the results
+   * @param params.recursive - Whether to recursively traverse subdirectories
+   * @param params.additionalIgnorePatterns - Additional patterns to ignore
    * @returns Promise<FileListResult> containing array of file objects
    */
   async listFilesInDir({

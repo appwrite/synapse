@@ -18,7 +18,7 @@ export class Terminal {
   private onDataCallback: ((success: boolean, data: string) => void) | null =
     null;
   private onExitCallback:
-    | ((success: boolean, exitCode: number, signal: number) => void)
+    | ((success: boolean, exitCode: number, signal: number | undefined) => void)
     | null = null;
   private isAlive: boolean = false;
   private initializationError: Error | null = null;
@@ -139,11 +139,15 @@ export class Terminal {
     }
   }
 
-  async executeCommand(
-    command: string,
-    cwd: string,
-    timeout: number = 5000,
-  ): Promise<{ output: string; exitCode: number }> {
+  async executeCommand({
+    command,
+    cwd,
+    timeout = 5000,
+  }: {
+    command: string;
+    cwd: string;
+    timeout?: number;
+  }): Promise<{ output: string; exitCode: number }> {
     if (!command) {
       throw new Error("Command is required");
     }
@@ -194,12 +198,16 @@ export class Terminal {
    * @param callback - The callback to set
    */
   onExit(
-    callback: (success: boolean, exitCode: number, signal: number) => void,
+    callback: (
+      success: boolean,
+      exitCode: number,
+      signal: number | undefined,
+    ) => void,
   ): void {
     this.onExitCallback = (
       success: boolean,
       exitCode: number,
-      signal: number,
+      signal: number | undefined,
     ) => {
       callback(success, exitCode, signal);
     };
@@ -232,6 +240,10 @@ export class Terminal {
       this.isAlive = false;
       this.term = null;
       this.synapse.unregisterTerminal(this);
+
+      if (this.onExitCallback) {
+        this.onExitCallback(true, 0, undefined);
+      }
     }
   }
 

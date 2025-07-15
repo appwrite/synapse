@@ -36,6 +36,16 @@ export interface LintResult {
   error?: string;
 }
 
+export type FormatCodeParams = {
+  code: string;
+  options: FormatOptions;
+};
+
+export type LintCodeParams = {
+  code: string;
+  options: LintOptions;
+};
+
 export class Code {
   private synapse: Synapse;
 
@@ -84,11 +94,12 @@ export class Code {
 
   /**
    * Format code according to specified options
-   * @param code The code to format
-   * @param options Formatting options
+   * @param params - The parameters for formatting code
+   * @param params.code - The code to format
+   * @param params.options - Formatting options
    * @returns A promise resolving to the formatting result
    */
-  async format(code: string, options: FormatOptions): Promise<FormatResult> {
+  async format({ code, options }: FormatCodeParams): Promise<FormatResult> {
     try {
       if (!code || typeof code !== "string") {
         return {
@@ -126,11 +137,12 @@ export class Code {
 
   /**
    * Lint code to identify issues
-   * @param code The code to lint
-   * @param options Linting options
+   * @param params - The parameters for linting code
+   * @param params.code - The code to lint
+   * @param params.options - Linting options
    * @returns A promise resolving to the linting result
    */
-  async lint(code: string, options: LintOptions): Promise<LintResult> {
+  async lint({ code, options }: LintCodeParams): Promise<LintResult> {
     try {
       if (!code || typeof code !== "string") {
         return {
