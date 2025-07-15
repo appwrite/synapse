@@ -323,7 +323,7 @@ export class Filesystem {
 
       // Create the parent directory of the target path if it doesn't exist
       const dirPath = path.dirname(newPath);
-      const folderResult = await this.createFolder(dirPath);
+      const folderResult = await this.createFolder({ dirPath });
       if (!folderResult.success) {
         this.log(
           `Failed to create parent directory for ${newPath}: ${folderResult.error}`
@@ -519,7 +519,7 @@ export class Filesystem {
 
       // Create the parent directory of the target path if it doesn't exist
       const dirPath = path.dirname(newPath);
-      const folderResult = await this.createFolder(dirPath);
+      const folderResult = await this.createFolder({ dirPath });
       if (!folderResult.success) {
         this.log(
           `Failed to create parent directory for ${newPath}: ${folderResult.error}`
