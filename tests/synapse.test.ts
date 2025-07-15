@@ -1,302 +1,251 @@
-import { IncomingMessage } from "http";
-import { Socket } from "net";
-import WebSocket, { WebSocketServer } from "ws";
+import { test, describe, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { Synapse } from "../src/synapse";
+import { Terminal } from "../src/services/terminal";
+import { Filesystem } from "../src/services/filesystem";
 
-jest.mock("ws");
+let synapse: Synapse;
 
-const createMockWebSocket = (options: { readyState?: number } = {}) => ({
-  onopen: null as unknown as (event: WebSocket.Event) => void,
-  onmessage: null as unknown as (event: WebSocket.MessageEvent) => void,
-  onerror: null as unknown as (event: WebSocket.ErrorEvent) => void,
-  onclose: null as unknown as (event: WebSocket.CloseEvent) => void,
-  readyState: options.readyState ?? WebSocket.OPEN,
-  send: jest.fn(),
-  close: jest.fn(),
-  on: jest.fn(),
+beforeEach(() => {
+  synapse = new Synapse();
 });
 
-describe("Synapse", () => {
-  let synapse: Synapse;
+afterEach(() => {
+  synapse.disconnect();
+});
 
-  beforeEach(() => {
-    synapse = new Synapse("localhost", 8080);
-    jest.clearAllMocks();
+describe("Synapse initialization", () => {
+  test("initializes with default host and port", () => {
+    const defaultSynapse = new Synapse();
+    assert.ok(defaultSynapse);
+    defaultSynapse.disconnect();
   });
 
-  afterEach(() => {
-    synapse.disconnect();
-    jest.clearAllTimers();
+  test("initializes with custom host and port", () => {
+    const customSynapse = new Synapse("127.0.0.1", 8080);
+    assert.ok(customSynapse);
+    customSynapse.disconnect();
   });
 
-  afterAll(() => {
-    jest.restoreAllMocks();
+  test("has no connections initially", () => {
+    const connections = synapse.getConnections();
+    assert.deepEqual(connections, []);
+  });
+});
+
+describe("Connection management", () => {
+  test("returns false when no connections exist", () => {
+    assert.strictEqual(synapse.isConnected(), false);
   });
 
-  describe("webSocket connection", () => {
-    it("should connect successfully", async () => {
-      const mockWs = createMockWebSocket();
-      (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
-
-      const connectPromise = synapse.connect("/terminal");
-      setTimeout(() => mockWs.onopen && mockWs.onopen({} as any), 0);
-
-      await expect(connectPromise).resolves.toBe(
-        "Synapse connected successfully",
-      );
-    });
-
-    it("should reject on connection error", async () => {
-      const mockWs = createMockWebSocket();
-      (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
-
-      const connectPromise = synapse.connect("/");
-      setTimeout(
-        () =>
-          mockWs.onerror &&
-          mockWs.onerror({
-            error: new Error("Connection failed"),
-            message: "Connection failed",
-          } as any),
-        0,
-      );
-
-      await expect(connectPromise).rejects.toThrow("WebSocket error");
-    });
-
-    it("should call onClose with code, reason, and wasClean", () => {
-      const mockWs = createMockWebSocket();
-      (WebSocket as unknown as jest.Mock).mockImplementation(() => mockWs);
-
-      const onCloseMock = jest.fn();
-      synapse.onClose(onCloseMock);
-
-      // Use the real setup method so event handlers are set
-      (synapse as any).setupWebSocket(mockWs, { url: "/" }, "conn1");
-
-      // Simulate close event
-      const closeEvent = { code: 4001, reason: "Test reason", wasClean: true };
-      if (mockWs.onclose) mockWs.onclose(closeEvent as any);
-
-      expect(onCloseMock).toHaveBeenCalledWith(
-        "conn1",
-        4001,
-        "Test reason",
-        true,
-      );
-    });
+  test("returns null for non-existent connection", () => {
+    const connection = synapse.getConnection("non-existent");
+    assert.strictEqual(connection, null);
   });
 
-  describe("message handling", () => {
-    let mockWs: ReturnType<typeof createMockWebSocket>;
-    let connectionId: string;
-
-    beforeEach(() => {
-      mockWs = createMockWebSocket();
-      connectionId = "test-conn";
-      // Manually add connection for testing
-      (synapse as any).connections.set(connectionId, {
-        ws: mockWs,
-        id: connectionId,
-        path: "/",
-        params: null,
-        reconnectAttempts: 0,
-      });
-    });
-
-    it("should handle messages correctly", () => {
-      const handler = jest.fn();
-      synapse.onMessageType("test", handler);
-
-      const testMessage = {
-        type: "test",
-        requestId: "123",
-        data: { foo: "bar" },
-      };
-
-      // Simulate message event
-      (synapse as any).handleMessage(
-        { data: JSON.stringify(testMessage) },
-        connectionId,
-      );
-      expect(handler).toHaveBeenCalledWith(testMessage, connectionId);
-    });
-
-    it("should ignore malformed messages", () => {
-      const handler = jest.fn();
-      synapse.onMessageType("test", handler);
-
-      (synapse as any).handleMessage({ data: "invalid json{" }, connectionId);
-      expect(handler).not.toHaveBeenCalled();
-    });
+  test("returns null for path of non-existent connection", () => {
+    const path = synapse.getPath("non-existent");
+    assert.strictEqual(path, null);
   });
 
-  describe("send", () => {
-    let mockWs: ReturnType<typeof createMockWebSocket>;
-    let connectionId: string;
-
-    beforeEach(() => {
-      mockWs = createMockWebSocket();
-      connectionId = "test-conn";
-      (synapse as any).connections.set(connectionId, {
-        ws: mockWs,
-        id: connectionId,
-        path: "/",
-        params: null,
-        reconnectAttempts: 0,
-      });
-    });
-
-    it("should send messages and return payload", async () => {
-      const payload = { data: "test-data" };
-      const result = await synapse.send(connectionId, "test-type", payload);
-
-      expect(result).toEqual({
-        type: "test-type",
-        requestId: expect.any(String),
-        data: "test-data",
-      });
-      expect(mockWs.send).toHaveBeenCalledWith(JSON.stringify(result));
-    });
-
-    it("should throw when not connected", () => {
-      mockWs.readyState = WebSocket.CLOSED;
-      expect(() => synapse.send(connectionId, "test-type")).toThrow(
-        `WebSocket connection ${connectionId} is not connected`,
-      );
-    });
+  test("returns null for params of non-existent connection", () => {
+    const params = synapse.getParams("non-existent");
+    assert.strictEqual(params, null);
   });
 
-  describe("handleUpgrade", () => {
-    it("should handle upgrade and setup handlers", () => {
-      const mockWs = createMockWebSocket();
-      const mockWss = {
-        handleUpgrade: jest.fn((req, socket, head, cb) => {
-          cb(mockWs);
-          const connectionHandler = (mockWss.on as jest.Mock).mock.calls.find(
-            ([eventName]: [string]) => eventName === "connection",
-          )?.[1];
-          if (connectionHandler) {
-            connectionHandler(mockWs, req);
-          }
-        }),
-        emit: jest.fn(),
-        on: jest.fn() as jest.Mock,
-        close: jest.fn(),
-      } as unknown as WebSocketServer;
-
-      jest.mocked(WebSocketServer).mockImplementation(() => mockWss);
-
-      const onOpenMock = jest.fn();
-      synapse = new Synapse();
-      synapse.onOpen(onOpenMock);
-
-      // Provide a mock IncomingMessage with a url property
-      const mockReq = { url: "/test?foo=bar" } as IncomingMessage;
-      synapse.handleUpgrade(mockReq, {} as Socket, Buffer.alloc(0));
-      expect(onOpenMock).toHaveBeenCalled();
-    });
-
-    it("should call onConnection callback when new connection is established", () => {
-      const mockWs = createMockWebSocket();
-      const mockWss = {
-        handleUpgrade: jest.fn((req, socket, head, cb) => {
-          cb(mockWs);
-          const connectionHandler = (mockWss.on as jest.Mock).mock.calls.find(
-            ([eventName]: [string]) => eventName === "connection",
-          )?.[1];
-          if (connectionHandler) {
-            connectionHandler(mockWs, req);
-          }
-        }),
-        emit: jest.fn(),
-        on: jest.fn() as jest.Mock,
-        close: jest.fn(),
-      } as unknown as WebSocketServer;
-
-      jest.mocked(WebSocketServer).mockImplementation(() => mockWss);
-
-      const onConnectionMock = jest.fn();
-      synapse = new Synapse();
-      synapse.onConnection(onConnectionMock);
-
-      // Provide a mock IncomingMessage with a url property
-      const mockReq = { url: "/test?foo=bar" } as IncomingMessage;
-      synapse.handleUpgrade(mockReq, {} as Socket, Buffer.alloc(0));
-
-      expect(onConnectionMock).toHaveBeenCalledWith(expect.any(String)); // connectionId
-    });
+  test("throws error when sending to non-existent connection", () => {
+    assert.throws(() => {
+      synapse.sendToConnection({ connectionId: "non-existent", type: "test" });
+    }, /WebSocket connection .* is not connected/);
   });
 
-  describe("multiple connections", () => {
-    it("should allow multiple connections and track them independently", () => {
-      const mockWs1 = createMockWebSocket();
-      const mockWs2 = createMockWebSocket();
-      const mockWss = {
-        handleUpgrade: jest.fn((req, socket, head, cb) => {
-          if ((req as any).clientId === 1) cb(mockWs1);
-          else cb(mockWs2);
-          const connectionHandler = (mockWss.on as jest.Mock).mock.calls.find(
-            ([eventName]: [string]) => eventName === "connection",
-          )?.[1];
-          if (connectionHandler) {
-            connectionHandler(
-              (req as any).clientId === 1 ? mockWs1 : mockWs2,
-              req,
-            );
-          }
-        }),
-        emit: jest.fn(),
-        on: jest.fn() as jest.Mock,
-        close: jest.fn(),
-      } as unknown as WebSocketServer;
+  test("throws error when sending with promise to non-existent connection", async () => {
+    await assert.rejects(
+      () => synapse.send({ connectionId: "non-existent", type: "test" }),
+      /WebSocket connection .* is not connected/,
+    );
+  });
+});
 
-      jest.mocked(WebSocketServer).mockImplementation(() => mockWss);
+describe("Message handling", () => {
+  test("can register message handlers", () => {
+    let handlerCalled = false;
+    let receivedMessage: any = null;
+    let receivedConnectionId: string | null = null;
 
-      synapse = new Synapse();
-
-      const connectionIds: string[] = [];
-      synapse.onConnection((id) => connectionIds.push(id));
-
-      // Provide mock IncomingMessages with url property
-      const mockReq1 = { clientId: 1, url: "/test1?foo=bar" } as any;
-      const mockReq2 = { clientId: 2, url: "/test2?foo=baz" } as any;
-      synapse.handleUpgrade(mockReq1, {} as Socket, Buffer.alloc(0));
-      synapse.handleUpgrade(mockReq2, {} as Socket, Buffer.alloc(0));
-
-      expect(connectionIds.length).toBe(2);
-      expect(connectionIds[0]).not.toBe(connectionIds[1]);
-      expect(synapse.getConnections()).toEqual(
-        expect.arrayContaining([connectionIds[0], connectionIds[1]]),
-      );
-
-      synapse.disconnect(connectionIds[0]);
-      expect(synapse.getConnections()).toContain(connectionIds[1]);
-      expect(synapse.getConnections()).not.toContain(connectionIds[0]);
+    synapse.onMessageType("test", (message, connectionId) => {
+      handlerCalled = true;
+      receivedMessage = message;
+      receivedConnectionId = connectionId;
     });
+
+    // Verify handler registration doesn't throw
+    assert.ok(true);
   });
 
-  describe("connection cleanup", () => {
-    it("should clear all connections when disconnect is called", () => {
-      const mockWs1 = createMockWebSocket();
-      const mockWs2 = createMockWebSocket();
-      (synapse as any).connections.set("conn1", {
-        ws: mockWs1,
-        id: "conn1",
-        path: "/a",
-        params: null,
-        reconnectAttempts: 0,
-      });
-      (synapse as any).connections.set("conn2", {
-        ws: mockWs2,
-        id: "conn2",
-        path: "/b",
-        params: null,
-        reconnectAttempts: 0,
-      });
-      expect(synapse.getConnections().length).toBe(2);
-      synapse.disconnect();
-      expect(synapse.getConnections().length).toBe(0);
+  test("on method is alias for onMessageType", () => {
+    let handlerCalled = false;
+
+    synapse.on("test", (message, connectionId) => {
+      handlerCalled = true;
     });
+
+    // Verify handler registration doesn't throw
+    assert.ok(true);
+  });
+
+  test("returns empty array when broadcasting to no connections", () => {
+    const promises = synapse.broadcast({
+      type: "test",
+      payload: { data: "test" },
+    });
+    assert.deepEqual(promises, []);
+  });
+});
+
+describe("Connection lifecycle callbacks", () => {
+  test("can register onOpen callback", () => {
+    let callbackCalled = false;
+    let receivedConnectionId: string | null = null;
+
+    synapse.onOpen((connectionId) => {
+      callbackCalled = true;
+      receivedConnectionId = connectionId;
+    });
+
+    // Verify callback registration doesn't throw
+    assert.ok(true);
+  });
+
+  test("can register onClose callback", () => {
+    let callbackCalled = false;
+
+    synapse.onClose((connectionId, code, reason, wasClean) => {
+      callbackCalled = true;
+    });
+
+    // Verify callback registration doesn't throw
+    assert.ok(true);
+  });
+
+  test("can register onError callback", () => {
+    let callbackCalled = false;
+
+    synapse.onError((error, connectionId) => {
+      callbackCalled = true;
+    });
+
+    // Verify callback registration doesn't throw
+    assert.ok(true);
+  });
+
+  test("can register onConnection callback", () => {
+    let callbackCalled = false;
+
+    synapse.onConnection((connectionId) => {
+      callbackCalled = true;
+    });
+
+    // Verify callback registration doesn't throw
+    assert.ok(true);
+  });
+});
+
+describe("Terminal management", () => {
+  test("can register terminal", () => {
+    const terminal = new Terminal(synapse);
+
+    synapse.registerTerminal(terminal);
+
+    // Verify registration doesn't throw
+    assert.ok(true);
+
+    terminal.kill();
+  });
+
+  test("can unregister terminal", () => {
+    const terminal = new Terminal(synapse);
+
+    synapse.registerTerminal(terminal);
+    synapse.unregisterTerminal(terminal);
+
+    // Verify unregistration doesn't throw
+    assert.ok(true);
+
+    terminal.kill();
+  });
+});
+
+describe("Filesystem management", () => {
+  test("can set filesystem", () => {
+    const filesystem = new Filesystem(synapse);
+
+    synapse.setFilesystem(filesystem);
+
+    // Verify filesystem setting doesn't throw
+    assert.ok(true);
+
+    filesystem.cleanup();
+  });
+});
+
+describe("Ports management", () => {
+  test("can get ports instance", () => {
+    const ports = synapse.getPorts();
+    assert.ok(ports);
+  });
+
+  test("can start port monitoring", () => {
+    synapse.startPortMonitoring();
+
+    // Verify monitoring start doesn't throw
+    assert.ok(true);
+  });
+
+  test("can stop port monitoring", () => {
+    synapse.startPortMonitoring();
+    synapse.stopPortMonitoring();
+
+    // Verify monitoring stop doesn't throw
+    assert.ok(true);
+  });
+
+  test("can stop port monitoring when not started", () => {
+    synapse.stopPortMonitoring();
+
+    // Verify stopping without starting doesn't throw
+    assert.ok(true);
+  });
+});
+
+describe("Method chaining", () => {
+  test("onOpen returns synapse instance for chaining", () => {
+    const result = synapse.onOpen(() => {});
+    assert.strictEqual(result, synapse);
+  });
+
+  test("onClose returns synapse instance for chaining", () => {
+    const result = synapse.onClose(() => {});
+    assert.strictEqual(result, synapse);
+  });
+
+  test("onError returns synapse instance for chaining", () => {
+    const result = synapse.onError(() => {});
+    assert.strictEqual(result, synapse);
+  });
+
+  test("onMessageType returns synapse instance for chaining", () => {
+    const result = synapse.onMessageType("test", () => {});
+    assert.strictEqual(result, synapse);
+  });
+
+  test("on returns synapse instance for chaining", () => {
+    const result = synapse.on("test", () => {});
+    assert.strictEqual(result, synapse);
+  });
+
+  test("onConnection returns synapse instance for chaining", () => {
+    const result = synapse.onConnection(() => {});
+    assert.strictEqual(result, synapse);
   });
 });

@@ -57,11 +57,11 @@ export class Ports {
         requestId: request.requestId,
       };
 
-      this.synapse.sendToConnection(
+      this.synapse.sendToConnection({
         connectionId,
-        "port-status-response",
-        response,
-      );
+        type: "port-status-response",
+        payload: response,
+      });
     } catch (error) {
       console.error("Error handling port status request:", error);
       // Send error response
@@ -70,11 +70,11 @@ export class Ports {
         timestamp: Date.now(),
         requestId: request.requestId,
       };
-      this.synapse.sendToConnection(
+      this.synapse.sendToConnection({
         connectionId,
-        "port-status-response",
-        errorResponse,
-      );
+        type: "port-status-response",
+        payload: errorResponse,
+      });
     }
   }
 
@@ -165,7 +165,10 @@ export class Ports {
       timestamp: Date.now(),
     };
 
-    this.synapse.broadcast("port-notification", notification);
+    this.synapse.broadcast({
+      type: "port-notification",
+      payload: notification,
+    });
   }
 
   /**

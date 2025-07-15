@@ -36,6 +36,17 @@ export type ErrorCallback = (error: Error, connectionId: string) => void;
 export type ServerConnectionCallback = (connectionId: string) => void;
 export type Logger = (message: string) => void;
 
+export type SendMessageParams = {
+  connectionId: string;
+  type: string;
+  payload?: Record<string, unknown>;
+};
+
+export type BroadcastMessageParams = {
+  type: string;
+  payload?: Record<string, unknown>;
+};
+
 class Synapse {
   private connections: Map<string, Connection> = new Map();
   private wss: WebSocketServer;
@@ -298,21 +309,24 @@ class Synapse {
 
   /**
    * Sends a message to a specific WebSocket connection
-   * @param connectionId - The ID of the connection to send to
-   * @param type - The type of message to send
-   * @param payload - The payload of the message
+   * @param params - The parameters for sending the message
+   * @param params.connectionId - The ID of the connection to send to
+   * @param params.type - The type of message to send
+   * @param params.payload - The payload of the message
    * @returns A promise that resolves with the message payload
    * @throws Error if WebSocket is not connected
    */
-  send(
-    connectionId: string,
-    type: string,
-    payload: Record<string, unknown> = {},
-  ): Promise<MessagePayload> {
+  send({
+    connectionId,
+    type,
+    payload = {},
+  }: SendMessageParams): Promise<MessagePayload> {
     const connection = this.connections.get(connectionId);
 
     if (!connection || connection.ws.readyState !== WebSocket.OPEN) {
-      throw new Error(`WebSocket connection ${connectionId} is not connected`);
+      return Promise.reject(
+        new Error(`WebSocket connection ${connectionId} is not connected`),
+      );
     }
 
     const message: MessagePayload = {
@@ -329,16 +343,17 @@ class Synapse {
 
   /**
    * Sends a message to a specific WebSocket connection without returning a promise
-   * @param connectionId - The ID of the connection to send to
-   * @param type - The type of message to send
-   * @param payload - The payload of the message
+   * @param params - The parameters for sending the message
+   * @param params.connectionId - The ID of the connection to send to
+   * @param params.type - The type of message to send
+   * @param params.payload - The payload of the message
    * @throws Error if WebSocket is not connected
    */
-  sendToConnection(
-    connectionId: string,
-    type: string,
-    payload: Record<string, unknown> = {},
-  ): void {
+  sendToConnection({
+    connectionId,
+    type,
+    payload = {},
+  }: SendMessageParams): void {
     const connection = this.connections.get(connectionId);
 
     if (!connection || connection.ws.readyState !== WebSocket.OPEN) {
@@ -356,19 +371,20 @@ class Synapse {
 
   /**
    * Broadcasts a message to all connected WebSocket clients
-   * @param type - The type of message to send
-   * @param payload - The payload of the message
+   * @param params - The parameters for broadcasting the message
+   * @param params.type - The type of message to send
+   * @param params.payload - The payload of the message
    * @returns An array of promises that resolve with the message payloads
    */
-  broadcast(
-    type: string,
-    payload: Record<string, unknown> = {},
-  ): Promise<MessagePayload>[] {
+  broadcast({
+    type,
+    payload = {},
+  }: BroadcastMessageParams): Promise<MessagePayload>[] {
     const promises: Promise<MessagePayload>[] = [];
 
     this.connections.forEach((connection, connectionId) => {
       if (connection.ws.readyState === WebSocket.OPEN) {
-        promises.push(this.send(connectionId, type, payload));
+        promises.push(this.send({ connectionId, type, payload }));
       }
     });
 

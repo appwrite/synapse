@@ -12,13 +12,15 @@ export type GitOperationResult = {
 export class Git {
   private synapse: Synapse;
   private workDir: string;
+  private timeout: number;
 
   /**
    * Creates a new Git instance
    * @param synapse - The Synapse instance to use
    */
-  constructor(synapse: Synapse, workDir?: string) {
+  constructor(synapse: Synapse, workDir?: string, timeout: number = 5000) {
     this.synapse = synapse;
+    this.timeout = timeout;
 
     if (workDir) {
       if (!fs.existsSync(workDir)) {
@@ -39,6 +41,33 @@ export class Git {
       const git = spawn("git", args, { cwd: this.workDir });
       let output = "";
       let errorOutput = "";
+      let resolved = false;
+
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          git.kill("SIGTERM");
+
+          setTimeout(() => {
+            if (!git.killed) {
+              git.kill("SIGKILL");
+            }
+          }, 1000);
+
+          resolve({
+            success: false,
+            error: `Git command timed out after ${this.timeout} seconds: git ${args.join(" ")}`,
+          });
+        }
+      }, this.timeout);
+
+      const resolveOnce = (result: GitOperationResult) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          resolve(result);
+        }
+      };
 
       git.stdout.on("data", (data) => {
         output += data.toString();
@@ -49,7 +78,7 @@ export class Git {
       });
 
       git.on("error", (error: Error) => {
-        resolve({
+        resolveOnce({
           success: false,
           error: `Failed to execute git command: ${error.message}`,
         });
@@ -57,12 +86,12 @@ export class Git {
 
       git.on("close", (code) => {
         if (code !== 0) {
-          resolve({
+          resolveOnce({
             success: false,
             error: errorOutput.trim() || "Git command failed",
           });
         } else {
-          resolve({ success: true, data: output.trim() });
+          resolveOnce({ success: true, data: output.trim() });
         }
       });
     });
@@ -123,11 +152,18 @@ export class Git {
 
   /**
    * Add a remote repository
-   * @param name - The name of the remote (e.g., "origin")
-   * @param url - The URL of the remote repository
+   * @param params - Object containing remote repository parameters
+   * @param params.name - The name of the remote (e.g., "origin")
+   * @param params.url - The URL of the remote repository
    * @returns The output of the git remote add command
    */
-  async addRemote(name: string, url: string): Promise<GitOperationResult> {
+  async addRemote({
+    name,
+    url,
+  }: {
+    name: string;
+    url: string;
+  }): Promise<GitOperationResult> {
     return this.execute(["remote", "add", name, url]);
   }
 
@@ -141,19 +177,25 @@ export class Git {
 
   /**
    * Set Git user name
-   * @param name - The user name to set for Git
+   * @param params - Object containing user name parameters
+   * @param params.name - The user name to set for Git
    * @returns The output of the git config command
    */
-  async setUserName(name: string): Promise<GitOperationResult> {
+  async setUserName({ name }: { name: string }): Promise<GitOperationResult> {
     return this.execute(["config", "user.name", name]);
   }
 
   /**
    * Set Git user email
-   * @param email - The email to set for Git
+   * @param params - Object containing user email parameters
+   * @param params.email - The email to set for Git
    * @returns The output of the git config command
    */
-  async setUserEmail(email: string): Promise<GitOperationResult> {
+  async setUserEmail({
+    email,
+  }: {
+    email: string;
+  }): Promise<GitOperationResult> {
     return this.execute(["config", "user.email", email]);
   }
 
@@ -167,36 +209,42 @@ export class Git {
 
   /**
    * Add files to staging
-   * @param files - The files to add to staging
+   * @param params - Object containing file addition parameters
+   * @param params.files - The files to add to staging
    * @returns The output of the git add command
    */
-  async add(files: string[]): Promise<GitOperationResult> {
+  async add({ files }: { files: string[] }): Promise<GitOperationResult> {
     return this.execute(["add", ...files]);
   }
 
   /**
    * Commit changes
-   * @param message - The commit message
+   * @param params - Object containing commit message parameters
+   * @param params.message - The commit message
    * @returns The output of the git commit command
    */
-  async commit(message: string): Promise<GitOperationResult> {
+  async commit({ message }: { message: string }): Promise<GitOperationResult> {
     return this.execute(["commit", "-m", message]);
   }
 
   /**
    * Pull changes from remote
+   * @param params - Object containing pull parameters
+   * @param params.branch - The branch to pull from
    * @returns The output of the git pull command
    */
-  async pull(): Promise<GitOperationResult> {
-    return this.execute(["pull"]);
+  async pull({ branch }: { branch?: string }): Promise<GitOperationResult> {
+    const args = branch ? ["pull", branch] : ["pull"];
+    return this.execute(args);
   }
 
   /**
    * Push changes to remote
    * @returns The output of the git push command
    */
-  async push(): Promise<GitOperationResult> {
-    return this.execute(["push"]);
+  async push({ branch }: { branch?: string }): Promise<GitOperationResult> {
+    const args = branch ? ["push", branch] : ["push"];
+    return this.execute(args);
   }
 
   /**

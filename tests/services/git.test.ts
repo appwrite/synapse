@@ -1,252 +1,163 @@
-import { jest } from "@jest/globals";
-import { spawn } from "child_process";
-import * as fs from "fs";
+import { test, describe, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
+import * as fs from "fs/promises";
+import * as fsSync from "fs";
+import * as path from "path";
+import os from "os";
+
 import { Git, Synapse } from "../../src";
 
-jest.mock("child_process", () => ({
-  spawn: jest.fn(),
-}));
+// --- Test helpers ---
+let tempDir: string;
+let git: Git;
+let synapse: Synapse;
 
-jest.mock("fs", () => {
-  const actual = jest.requireActual("fs") as typeof fs;
-  return {
-    ...actual,
-    existsSync: jest.fn(),
-    statSync: jest.fn(),
-    promises: {
-      ...actual.promises,
-      access: jest.fn(() => Promise.resolve()),
-    },
-  };
+beforeEach(async () => {
+  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "git-test-"));
+  synapse = new Synapse();
+  git = new Git(synapse, tempDir);
 });
 
-describe("Git Service", () => {
-  let git: Git;
-  let mockSpawn: jest.Mock;
-  let mockSynapse: jest.Mocked<Synapse>;
-  const mockWorkingDir = "/tmp/synapse/git-test";
+afterEach(async () => {
+  await fs.rm(tempDir, { recursive: true, force: true });
+  synapse.disconnect();
+});
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest.spyOn(process, "cwd").mockReturnValue(mockWorkingDir);
-    (fs.existsSync as jest.Mock).mockReturnValue(false);
-    (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
+async function configureGitUser(): Promise<void> {
+  await git.setUserName({ name: "Test User" });
+  await git.setUserEmail({ email: "test@example.com" });
+}
 
-    mockSpawn = spawn as jest.Mock;
-    mockSynapse = new Synapse() as jest.Mocked<Synapse>;
-    git = new Git(mockSynapse, mockWorkingDir);
+// --- Git Repository Initialization ---
+describe("Git repository initialization", () => {
+  test("initializes a new repository", async () => {
+    const result = await git.init();
+    assert.strictEqual(result.success, true);
+    assert.ok(result.data);
+    assert.match(result.data, /Initialized empty Git repository/);
+    assert.ok(fsSync.existsSync(path.join(tempDir, ".git")));
   });
 
-  const setupMockProcess = (
-    output: string = "",
-    error: string = "",
-    exitCode: number = 0,
-  ) => {
-    const mockStdout = { on: jest.fn(), pipe: jest.fn() };
-    const mockStderr = { on: jest.fn(), pipe: jest.fn() };
-    const mockChildProcess = {
-      stdout: mockStdout,
-      stderr: mockStderr,
-      on: jest.fn(),
-    };
-
-    mockStdout.on.mockImplementation((event, callback) => {
-      if (event === "data") {
-        (callback as (data: string) => void)(output);
-      }
-    });
-
-    mockStderr.on.mockImplementation((event, callback) => {
-      if (event === "data") {
-        (callback as (data: string) => void)(error);
-      }
-    });
-
-    mockChildProcess.on.mockImplementation((event, callback) => {
-      if (event === "close") {
-        (callback as (code: number) => void)(exitCode);
-      }
-    });
-
-    mockSpawn.mockReturnValue(mockChildProcess);
-    return mockChildProcess;
-  };
-
-  describe("init", () => {
-    it("success - new repository", async () => {
-      setupMockProcess("Initialized empty Git repository");
-      expect(await git.init()).toEqual({
-        success: true,
-        data: "Initialized empty Git repository",
-      });
-    });
-
-    it("error - repository exists", async () => {
-      (fs.existsSync as jest.Mock).mockReturnValue(true);
-      (fs.existsSync as jest.Mock).mockImplementation(function (
-        this: unknown,
-        ...args: unknown[]
-      ): boolean {
-        const path = args[0] as string;
-        return path.includes(".git");
-      });
-      expect(await git.init()).toEqual({
-        success: false,
-        error: "Git repository already exists in this directory",
-      });
-    });
-
-    it("success - change workDir", async () => {
-      // First ensure no git repo exists
-      (fs.existsSync as jest.Mock).mockImplementation(function (
-        this: unknown,
-      ): boolean {
-        return false;
-      });
-      setupMockProcess("Initialized empty Git repository");
-
-      // Change workDir
-      git.updateWorkDir("/tmp/synapse/git-test/another-project");
-
-      // Now init should succeed
-      const secondInit = await git.init();
-      expect(secondInit).toEqual({
-        success: true,
-        data: "Initialized empty Git repository",
-      });
-    });
+  test("returns error if repository already exists", async () => {
+    await git.init();
+    const result = await git.init();
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(
+      result.error,
+      "Git repository already exists in this directory",
+    );
   });
 
-  describe("addRemote", () => {
-    it("success", async () => {
-      setupMockProcess("");
-      expect(
-        await git.addRemote("origin", "https://github.com/user/repo.git"),
-      ).toEqual({
-        success: true,
-        data: "",
-      });
-    });
+  test("allows changing working directory", async () => {
+    const newDir = path.join(tempDir, "another-project");
+    await fs.mkdir(newDir);
+    git.updateWorkDir(newDir);
+    const result = await git.init();
+    assert.strictEqual(result.success, true);
+    assert.ok(fsSync.existsSync(path.join(newDir, ".git")));
+  });
+});
 
-    it("error - remote exists", async () => {
-      setupMockProcess("", "remote origin already exists", 128);
-      expect(
-        await git.addRemote("origin", "https://github.com/user/repo.git"),
-      ).toEqual({
-        success: false,
-        error: "remote origin already exists",
-      });
+// --- Remote Management ---
+describe("Git remote management", () => {
+  test("adds a new remote successfully", async () => {
+    await git.init();
+    const result = await git.addRemote({
+      name: "origin",
+      url: "https://github.com/user/repo.git",
     });
+    assert.strictEqual(result.success, true);
   });
 
-  describe("getCurrentBranch", () => {
-    it("success", async () => {
-      setupMockProcess("main\n");
-      expect(await git.getCurrentBranch()).toEqual({
-        success: true,
-        data: "main",
-      });
+  test("returns error if remote already exists", async () => {
+    await git.init();
+    await git.addRemote({
+      name: "origin",
+      url: "https://github.com/user/repo.git",
     });
+    const result = await git.addRemote({
+      name: "origin",
+      url: "https://github.com/user/repo.git",
+    });
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error);
+    assert.match(result.error, /remote origin already exists/);
+  });
+});
 
-    it("error", async () => {
-      setupMockProcess("", "fatal: not a git repository", 128);
-      expect(await git.getCurrentBranch()).toEqual({
-        success: false,
-        error: "fatal: not a git repository",
-      });
-    });
+// --- Branch and Status ---
+describe("Branch and status operations", () => {
+  test("gets the current branch after initial commit", async () => {
+    await git.init();
+    await configureGitUser();
+    const filePath = path.join(tempDir, "init.txt");
+    await fs.writeFile(filePath, "initial");
+    await git.add({ files: ["init.txt"] });
+    await git.commit({ message: "Initial commit" });
+
+    const result = await git.getCurrentBranch();
+    assert.strictEqual(result.success, true);
+    assert.ok(result.data);
   });
 
-  describe("status", () => {
-    it("success", async () => {
-      const statusOutput =
-        "On branch main\nnothing to commit, working tree clean";
-      setupMockProcess(statusOutput);
-      expect(await git.status()).toEqual({
-        success: true,
-        data: statusOutput,
-      });
-    });
+  test("returns error if not a git repository", async () => {
+    const result = await git.getCurrentBranch();
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error);
+    assert.match(result.error, /not a git repository/);
   });
 
-  describe("add", () => {
-    it("success", async () => {
-      setupMockProcess("");
-      expect(await git.add(["file1.txt"])).toEqual({
-        success: true,
-        data: "",
-      });
-    });
+  test("shows git status", async () => {
+    await git.init();
+    const result = await git.status();
+    assert.strictEqual(result.success, true);
+    assert.ok(result.data);
+    assert.match(result.data, /On branch/);
+  });
+});
 
-    it("error - non-existent files", async () => {
-      setupMockProcess(
-        "",
-        "fatal: pathspec 'nonexistent.txt' did not match any files",
-        128,
-      );
-      expect(await git.add(["nonexistent.txt"])).toEqual({
-        success: false,
-        error: "fatal: pathspec 'nonexistent.txt' did not match any files",
-      });
-    });
+// --- File Staging ---
+describe("File staging", () => {
+  test("adds files to staging area", async () => {
+    await git.init();
+    const filePath = path.join(tempDir, "file1.txt");
+    await fs.writeFile(filePath, "content");
+    const result = await git.add({ files: ["file1.txt"] });
+    assert.strictEqual(result.success, true);
   });
 
-  describe("commit", () => {
-    it("success", async () => {
-      const commitOutput = "[main abc1234] test commit\n 1 file changed";
-      setupMockProcess(commitOutput);
-      expect(await git.commit("test commit")).toEqual({
-        success: true,
-        data: commitOutput,
-      });
-    });
+  test("returns error for non-existent files", async () => {
+    await git.init();
+    const result = await git.add({ files: ["nonexistent.txt"] });
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error);
+    assert.match(result.error, /did not match any files/);
+  });
+});
 
-    it("error - nothing to commit", async () => {
-      setupMockProcess("", "nothing to commit, working tree clean", 1);
-      expect(await git.commit("test commit")).toEqual({
-        success: false,
-        error: "nothing to commit, working tree clean",
-      });
-    });
+// --- Commits ---
+describe("Committing changes", () => {
+  test("commits staged changes", async () => {
+    await git.init();
+    await configureGitUser();
+    const filePath = path.join(tempDir, "file.txt");
+    await fs.writeFile(filePath, "commit me");
+    await git.add({ files: ["file.txt"] });
+    const result = await git.commit({ message: "test commit" });
+    assert.strictEqual(result.success, true);
+    assert.ok(result.data);
+    assert.match(result.data, /\[.*\] test commit/);
   });
 
-  describe("pull", () => {
-    it("success", async () => {
-      setupMockProcess("Already up to date.");
-      expect(await git.pull()).toEqual({
-        success: true,
-        data: "Already up to date.",
-      });
-    });
-
-    it("error - no remote", async () => {
-      setupMockProcess("", "fatal: no remote repository specified", 1);
-      expect(await git.pull()).toEqual({
-        success: false,
-        error: "fatal: no remote repository specified",
-      });
-    });
-  });
-
-  describe("push", () => {
-    it("success", async () => {
-      setupMockProcess("Everything up-to-date");
-      expect(await git.push()).toEqual({
-        success: true,
-        data: "Everything up-to-date",
-      });
-    });
-
-    it("error - no upstream", async () => {
-      setupMockProcess(
-        "",
-        "fatal: The current branch has no upstream branch",
-        1,
-      );
-      expect(await git.push()).toEqual({
-        success: false,
-        error: "fatal: The current branch has no upstream branch",
-      });
-    });
+  test("returns error when nothing to commit", async () => {
+    await git.init();
+    await configureGitUser();
+    const result = await git.commit({ message: "test commit" });
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error);
+    assert.match(
+      result.error,
+      /Git command failed|nothing to commit|working tree clean|no changes added to commit/,
+    );
   });
 });

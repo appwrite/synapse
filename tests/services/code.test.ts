@@ -1,164 +1,98 @@
-import { beforeEach, describe, expect, jest, test } from "@jest/globals";
-import { ESLint } from "eslint";
-import { format } from "prettier";
+import assert from "node:assert/strict";
+import { beforeEach, describe, test } from "node:test";
 import { Code } from "../../src/services/code";
 import { Synapse } from "../../src/synapse";
 
-jest.mock("prettier");
-jest.mock("eslint");
-jest.mock("../../src/synapse");
+let code: Code;
 
-describe("Code", () => {
-  let code: Code;
-  let mockSynapse: jest.Mocked<Synapse>;
+beforeEach(() => {
+  code = new Code(new Synapse());
+});
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockSynapse = new Synapse() as jest.Mocked<Synapse>;
-    code = new Code(mockSynapse);
-  });
+describe("formatting JavaScript code", () => {
+  test("formats with default Prettier options", async () => {
+    const input = "const x=1;const y=2;";
+    const expected = "const x = 1;\nconst y = 2;\n";
 
-  describe("format", () => {
-    test("should format JavaScript code correctly", async () => {
-      const input = "const x=1;const y=2;";
-      const expected = "const x = 1;\nconst y = 2;\n";
-
-      (format as jest.MockedFunction<typeof format>).mockResolvedValue(
-        expected,
-      );
-
-      const result = await code.format(input, { language: "javascript" });
-
-      expect(result).toEqual({
-        success: true,
-        data: expected,
-      });
+    const result = await code.format({
+      code: input,
+      options: { language: "javascript" },
     });
 
-    test("should format TypeScript code with custom options", async () => {
-      const input = "const x:number=1;";
-      const expected = "const x: number = 1;\n";
+    assert.deepEqual(result, {
+      success: true,
+      data: expected,
+    });
+  });
+});
 
-      (format as jest.MockedFunction<typeof format>).mockResolvedValue(
-        expected,
-      );
+describe("formatting TypeScript code", () => {
+  test("applies custom formatting options", async () => {
+    const input = "const x:number=1;";
+    const expected = "const x: number = 1\n";
 
-      const result = await code.format(input, {
+    const result = await code.format({
+      code: input,
+      options: {
         language: "typescript",
         indent: 4,
         useTabs: true,
         semi: false,
         singleQuote: true,
-      });
+      },
+    });
 
-      expect(result).toEqual({
-        success: true,
-        data: expected,
-      });
+    assert.deepEqual(result, {
+      success: true,
+      data: expected,
     });
   });
+});
 
-  describe("lint", () => {
-    test("should lint JavaScript code and return issues", async () => {
-      const input = "const x = 1;";
-      const mockLintResult: ESLint.LintResult[] = [
-        {
-          messages: [
-            {
-              line: 1,
-              column: 1,
-              severity: 2,
-              ruleId: "no-unused-vars",
-              message: "x is defined but never used",
-            },
-          ],
-          filePath: "",
-          errorCount: 1,
-          warningCount: 0,
-          fixableErrorCount: 0,
-          fixableWarningCount: 0,
-          source: input,
-          suppressedMessages: [],
-          fatalErrorCount: 0,
-          usedDeprecatedRules: [],
-        },
-      ];
+describe("linting JavaScript code for errors", () => {
+  test("reports unused variable as an error", async () => {
+    const input = "const x = 1;";
 
-      const mockLintText = jest
-        .fn<() => Promise<ESLint.LintResult[]>>()
-        .mockResolvedValue(mockLintResult);
-      const MockESLint = jest.fn().mockImplementation(() => ({
-        lintText: mockLintText,
-      }));
-      (ESLint as unknown) = MockESLint;
-
-      const result = await code.lint(input, { language: "javascript" });
-
-      expect(result).toEqual({
-        success: true,
-        data: {
-          issues: [
-            {
-              line: 1,
-              column: 1,
-              severity: "error",
-              rule: "no-unused-vars",
-              message: "x is defined but never used",
-            },
-          ],
-        },
-      });
+    const result = await code.lint({
+      code: input,
+      options: {
+        language: "javascript",
+        rules: { "no-unused-vars": "error" },
+      },
     });
 
-    test("should handle warnings in lint results", async () => {
-      const input = 'console.log("test");';
-      const mockLintResult: ESLint.LintResult[] = [
-        {
-          messages: [
-            {
-              line: 1,
-              column: 1,
-              severity: 1,
-              ruleId: "no-console",
-              message: "Unexpected console statement",
-            },
-          ],
-          filePath: "",
-          errorCount: 0,
-          warningCount: 1,
-          fixableErrorCount: 0,
-          fixableWarningCount: 0,
-          source: input,
-          suppressedMessages: [],
-          fatalErrorCount: 0,
-          usedDeprecatedRules: [],
-        },
-      ];
+    assert.strictEqual(result.success, true);
+    assert.ok(result.data, "Expected result.data to be defined");
+    assert.ok(
+      result.data.issues.some(
+        (issue: any) =>
+          issue.rule === "no-unused-vars" && issue.severity === "error",
+      ),
+      "Expected unused variable error to be reported",
+    );
+  });
+});
 
-      const mockLintText = jest
-        .fn<() => Promise<ESLint.LintResult[]>>()
-        .mockResolvedValue(mockLintResult);
-      const MockESLint = jest.fn().mockImplementation(() => ({
-        lintText: mockLintText,
-      }));
-      (ESLint as unknown) = MockESLint;
+describe("linting JavaScript code for warnings", () => {
+  test("warns on console statements", async () => {
+    const input = 'console.log("test");';
 
-      const result = await code.lint(input, { language: "javascript" });
-
-      expect(result).toEqual({
-        success: true,
-        data: {
-          issues: [
-            {
-              line: 1,
-              column: 1,
-              severity: "warning",
-              rule: "no-console",
-              message: "Unexpected console statement",
-            },
-          ],
-        },
-      });
+    const result = await code.lint({
+      code: input,
+      options: {
+        language: "javascript",
+        rules: { "no-console": "warn" },
+      },
     });
+
+    assert.strictEqual(result.success, true);
+    assert.ok(result.data, "Expected result.data to be defined");
+    assert.ok(
+      result.data.issues.some(
+        (issue: any) =>
+          issue.rule === "no-console" && issue.severity === "warning",
+      ),
+      "Expected console warning to be reported",
+    );
   });
 });

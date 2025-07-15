@@ -1,6 +1,18 @@
 import { Client, Databases, Sites, Storage, Teams, Users } from "node-appwrite";
 import { Synapse } from "../synapse";
 
+export type AppwriteInitParams = {
+  endpoint?: string;
+  projectId: string;
+  jwt: string;
+};
+
+export type AppwriteCallParams = {
+  service: string;
+  method: string;
+  args?: Record<string, any>;
+};
+
 export class Appwrite {
   private synapse: Synapse;
   private client: Client;
@@ -80,16 +92,17 @@ export class Appwrite {
 
   /**
    * Initialize the Appwrite client
-   * @param endpoint API endpoint
-   * @param projectId Appwrite project ID
-   * @param jwt JWT token
+   * @param params - The parameters for initializing the client
+   * @param params.endpoint - API endpoint
+   * @param params.projectId - Appwrite project ID
+   * @param params.jwt - JWT token
    * @returns this instance for method chaining
    */
-  init(
-    endpoint: string = "https://cloud.appwrite.io/v1",
-    projectId: string,
-    jwt: string,
-  ): Appwrite {
+  init({
+    endpoint = "https://cloud.appwrite.io/v1",
+    projectId,
+    jwt,
+  }: AppwriteInitParams): Appwrite {
     this.setEndpoint(endpoint);
     this.setProject(projectId);
     this.setJWT(jwt);
@@ -114,17 +127,14 @@ export class Appwrite {
 
   /**
    * Call a method on an Appwrite service
-   * @param serviceName The name of the service (e.g., 'users', 'databases')
-   * @param methodName The name of the method to call on the service
-   * @param args Arguments to pass to the method
+   * @param params - The parameters for calling the service method
+   * @param params.service - The name of the service (e.g., 'users', 'databases')
+   * @param params.method - The name of the method to call on the service
+   * @param params.args - Arguments to pass to the method as an object
    * @returns The result of the method call
    * @throws Error if service or method does not exist
    */
-  async call(
-    serviceName: string,
-    methodName: string,
-    args: object = {},
-  ): Promise<any> {
+  async call({ service, method, args = {} }: AppwriteCallParams): Promise<any> {
     // Check if SDK is initialized before making any calls
     if (!this.isInitialized()) {
       throw new Error(
@@ -132,14 +142,9 @@ export class Appwrite {
       );
     }
 
-    // Convert service name to lowercase for case-insensitive matching
-    const normalizedServiceName = serviceName.toLowerCase();
-
-    // Check if service exists
+    const normalizedServiceName = service.toLowerCase();
     if (!this.availableServices[normalizedServiceName]) {
-      throw new Error(
-        `Service '${serviceName}' does not exist in Appwrite SDK`,
-      );
+      throw new Error(`Service '${service}' does not exist in Appwrite SDK`);
     }
 
     // Get or create service instance
@@ -149,16 +154,16 @@ export class Appwrite {
       ](this.client);
     }
 
-    const service = this.serviceInstances[normalizedServiceName];
+    const serviceInstance = this.serviceInstances[normalizedServiceName];
 
     // Check if method exists
-    if (typeof service[methodName] !== "function") {
+    if (typeof serviceInstance[method] !== "function") {
       throw new Error(
-        `Method '${methodName}' does not exist in service '${serviceName}'`,
+        `Method '${method}' does not exist in service '${service}'`,
       );
     }
 
-    // Call the method with provided arguments
-    return service[methodName](...Object.values(args));
+    // Call the method with provided arguments as an object
+    return serviceInstance[method](...Object.values(args));
   }
 }
