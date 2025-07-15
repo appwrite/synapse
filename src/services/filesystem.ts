@@ -15,6 +15,9 @@ const IGNORE_PATTERNS = [
   "coverage",
   "logs",
   ".git",
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "bun.lock"
 ];
 
 export type FileItem = {
@@ -318,6 +321,16 @@ export class Filesystem {
       const fullOldPath = this.resolvePath(oldPath);
       const fullNewPath = this.resolvePath(newPath);
 
+      // Create the parent directory of the target path if it doesn't exist
+      const dirPath = path.dirname(newPath);
+      const folderResult = await this.createFolder({ dirPath });
+      if (!folderResult.success) {
+        this.log(
+          `Failed to create parent directory for ${newPath}: ${folderResult.error}`
+        );
+        return { success: false, error: folderResult.error };
+      }
+
       await fs.rename(fullOldPath, fullNewPath);
 
       return { success: true };
@@ -503,6 +516,16 @@ export class Filesystem {
       this.log(`Moving folder from ${oldPath} to ${newPath}`);
       const fullOldPath = this.resolvePath(oldPath);
       const fullNewPath = this.resolvePath(newPath);
+
+      // Create the parent directory of the target path if it doesn't exist
+      const dirPath = path.dirname(newPath);
+      const folderResult = await this.createFolder({ dirPath });
+      if (!folderResult.success) {
+        this.log(
+          `Failed to create parent directory for ${newPath}: ${folderResult.error}`
+        );
+        return { success: false, error: folderResult.error };
+      }
 
       await fs.rename(fullOldPath, fullNewPath);
 
