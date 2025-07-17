@@ -161,6 +161,7 @@ export class Terminal {
         cwd,
         encoding: "utf-8",
         timeout,
+        shell: "/bin/bash"
       });
 
       return {
