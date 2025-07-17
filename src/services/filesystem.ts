@@ -7,6 +7,8 @@ import ignore from "ignore";
 import mime from "mime-types";
 import * as path from "path";
 import { Synapse } from "../synapse";
+import { exec } from "child_process";
+import { promisify } from "util";
 
 const IGNORE_PATTERNS = [
   "node_modules",
@@ -451,7 +453,49 @@ export class Filesystem {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  
   }
+
+
+    async executeCommand({
+      command,
+      cwd,
+      timeout = 5000,
+    }: {
+      command: string;
+      cwd: string;
+      timeout?: number;
+    }): Promise<{ output: string; exitCode: number }> {
+      if (!command) {
+        throw new Error("Command is required");
+      }
+  
+      if (!cwd) {
+        throw new Error("cwd is required");
+      }
+  
+      console.log('Running as user:', (process as any).getuid(), 'working dir:', (process as any).cwd());
+  
+      try {
+        const { stdout, stderr } = await promisify(exec)(command, {
+          cwd,
+          encoding: "utf-8",
+          timeout,
+          shell: "/bin/bash"
+        });
+  
+        return {
+          output: stdout || stderr || "",
+          exitCode: 0, // Success case - error case is handled in catch block
+        };
+      } catch (error: any) {
+        console.error("Failed to execute command:", error);
+        return {
+          output: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          exitCode: 1,
+        };
+      }
+    }
 
   /**
    * Updates the name of a folder
@@ -663,17 +707,6 @@ export class Filesystem {
       watcher.close();
       this.folderWatchers.delete(fullPath);
     }
-  }
-
-  /**
-   * Updates the working directory
-   * @param workDir - The new working directory
-   */
-  updateWorkDir(workDir: string): void {
-    if (!fsSync.existsSync(workDir)) {
-      fsSync.mkdirSync(workDir, { recursive: true });
-    }
-    this.workDir = workDir;
   }
 
   /**

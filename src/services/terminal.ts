@@ -139,44 +139,6 @@ export class Terminal {
     }
   }
 
-  async executeCommand({
-    command,
-    cwd,
-    timeout = 5000,
-  }: {
-    command: string;
-    cwd: string;
-    timeout?: number;
-  }): Promise<{ output: string; exitCode: number }> {
-    if (!command) {
-      throw new Error("Command is required");
-    }
-
-    if (!cwd) {
-      throw new Error("cwd is required");
-    }
-
-    try {
-      const { stdout, stderr } = await promisify(exec)(command, {
-        cwd,
-        encoding: "utf-8",
-        timeout,
-        shell: "/bin/bash"
-      });
-
-      return {
-        output: stdout || stderr || "",
-        exitCode: 0, // Success case - error case is handled in catch block
-      };
-    } catch (error: any) {
-      console.error("Failed to execute command:", error);
-      return {
-        output: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: 1,
-      };
-    }
-  }
-
   /**
    * Sets the callback for when data is received from the terminal
    * @param callback - The callback to set
