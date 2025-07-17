@@ -457,15 +457,14 @@ export class Filesystem {
   }
 
 
-    async executeCommand({
-      command,
-      cwd,
-      timeout = 5000,
-    }: {
+    async executeCommand(params: {
       command: string;
       cwd: string;
       timeout?: number;
     }): Promise<{ output: string; exitCode: number }> {
+      console.log('Executing command:', params);
+      const { command, cwd, timeout = 5000 } = params;
+
       if (!command) {
         throw new Error("Command is required");
       }
@@ -481,7 +480,7 @@ export class Filesystem {
           cwd,
           encoding: "utf-8",
           timeout,
-          shell: "/bin/bash"
+          shell: "/usr/bin/bash"
         });
   
         return {
