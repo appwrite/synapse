@@ -480,7 +480,6 @@ export class Filesystem {
           cwd,
           encoding: "utf-8",
           timeout,
-          shell: "/usr/bin/bash"
         });
   
         return {
