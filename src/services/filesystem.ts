@@ -7,7 +7,7 @@ import ignore from "ignore";
 import mime from "mime-types";
 import * as path from "path";
 import { Synapse } from "../synapse";
-import { ChildProcess, exec, spawn } from "child_process";
+import { exec, spawn } from "child_process";
 import { promisify } from "util";
 
 const IGNORE_PATTERNS = [
@@ -457,6 +457,7 @@ export class Filesystem {
 
   async startBackgroundProcess(params: {
     command: string;
+    args: string[];
     cwd: string;
   }): Promise<
     | { success: true; pid: number }
@@ -464,8 +465,9 @@ export class Filesystem {
   > {
     console.log("Starting background process:", params);
 
-    const process = spawn(params.command, {
+    const process = spawn(params.command, [...params.args], {
       cwd: params.cwd,
+      shell: true,
     });
 
     if (!process.pid) {
