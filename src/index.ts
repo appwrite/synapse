@@ -8,3 +8,24 @@ export type { PortNotification } from "./services/ports";
 export { System } from "./services/system";
 export { Terminal } from "./services/terminal";
 export { Synapse } from "./synapse";
+
+export { SynapseHTTPClient, createSynapseHTTPClient } from "./client/http";
+export type {
+  SynapseRequest,
+  SynapseResponse,
+  AppwriteInitParams,
+  AppwriteCallParams,
+  FormatOptions,
+  LintResult,
+  FileItem,
+  FileContent,
+  FileListItem,
+  ListFilesInDirParams,
+  ListFilesInDirResult,
+  GitOperationResult,
+  GitOperation,
+  GitParams,
+  SystemUsageData,
+  ExecuteCommandParams,
+  ExecuteCommandResult,
+} from "./client/http";

@@ -328,7 +328,7 @@ export class Filesystem {
       const folderResult = await this.createFolder({ dirPath });
       if (!folderResult.success) {
         this.log(
-          `Failed to create parent directory for ${newPath}: ${folderResult.error}`
+          `Failed to create parent directory for ${newPath}: ${folderResult.error}`,
         );
         return { success: false, error: folderResult.error };
       }
@@ -585,7 +585,7 @@ export class Filesystem {
       const folderResult = await this.createFolder({ dirPath });
       if (!folderResult.success) {
         this.log(
-          `Failed to create parent directory for ${newPath}: ${folderResult.error}`
+          `Failed to create parent directory for ${newPath}: ${folderResult.error}`,
         );
         return { success: false, error: folderResult.error };
       }
