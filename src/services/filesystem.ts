@@ -210,18 +210,17 @@ export class Filesystem {
     if (!filePath) {
       return { success: false, error: "filePath is required" };
     }
-    const fullPath = this.resolvePath(filePath);
 
     const safeCwd = path.resolve(this.workDir, filePath);
     console.log("[getFile]", {
       workDir: this.workDir,
       filePath,
       safeCwd,
-      fullPath,
     });
 
     try {
-
+      const fullPath = this.resolvePath(filePath);
+      console.log("[getFile] fullPath", fullPath);
       const content = await fs.readFile(fullPath, "utf-8");
       const mimeType = mime.lookup(fullPath);
 
@@ -272,6 +271,7 @@ export class Filesystem {
     try {
       this.log(`Updating file at path: ${filePath}`);
       const fullPath = this.resolvePath(filePath);
+      console.log("[updateFile] fullPath", fullPath);
       const dirPath = path.dirname(filePath);
 
       await this.createFolder({ dirPath });
@@ -989,13 +989,17 @@ export class Filesystem {
       return { success: false, error: "path is required" };
     }
 
-    console.log("workDir", this.workDir);
-    console.log("dirPath", dirPath);
     const safeCwd = path.resolve(this.workDir, dirPath);
-    console.log("safeCwd", safeCwd);
-
+    
+    console.log("[listFilesInDir]", {
+      workDir: this.workDir,
+      dirPath,
+      safeCwd,
+    });
+    
     try {
       const fullPath = this.resolvePath(safeCwd);
+      console.log("[listFilesInDir] fullPath", fullPath);
       const workDir = path.resolve(this.workDir);
       const results: Array<{ path: string; content?: string }> = [];
 
