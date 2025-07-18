@@ -2,8 +2,6 @@ import fs from "fs";
 import * as pty from "node-pty";
 import * as os from "os";
 import { Synapse } from "../synapse";
-import { exec } from "child_process";
-import { promisify } from "util";
 
 export type TerminalOptions = {
   shell: string;
