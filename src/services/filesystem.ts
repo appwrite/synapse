@@ -97,6 +97,8 @@ export class Filesystem {
     this.synapse = synapse;
     this.synapse.setFilesystem(this);
 
+    console.log("Filesystem constructor", workDir);
+
     if (workDir) {
       if (!fsSync.existsSync(workDir)) {
         fsSync.mkdirSync(workDir, { recursive: true });
@@ -140,6 +142,13 @@ export class Filesystem {
     }
 
     const fullPath = this.resolvePath(filePath);
+    const safeCwd = path.resolve(this.workDir, filePath);
+    console.log("[createFile]", {
+      workDir: this.workDir,
+      filePath,
+      safeCwd,
+      fullPath,
+    });
 
     try {
       await fs.access(fullPath, fsConstants.F_OK);
@@ -201,9 +210,17 @@ export class Filesystem {
     if (!filePath) {
       return { success: false, error: "filePath is required" };
     }
+    const fullPath = this.resolvePath(filePath);
+
+    const safeCwd = path.resolve(this.workDir, filePath);
+    console.log("[getFile]", {
+      workDir: this.workDir,
+      filePath,
+      safeCwd,
+      fullPath,
+    });
 
     try {
-      const fullPath = this.resolvePath(filePath);
 
       const content = await fs.readFile(fullPath, "utf-8");
       const mimeType = mime.lookup(fullPath);
@@ -241,6 +258,13 @@ export class Filesystem {
     filePath: string;
     content: string;
   }): Promise<FileOperationResult> {
+    const safeCwd = path.resolve(this.workDir, filePath);
+    console.log("[updateFile]", {
+      workDir: this.workDir,
+      filePath,
+      safeCwd,
+    });
+
     if (!filePath) {
       return { success: false, error: "filePath is required" };
     }
@@ -965,7 +989,11 @@ export class Filesystem {
       return { success: false, error: "path is required" };
     }
 
+    console.log("workDir", this.workDir);
+    console.log("dirPath", dirPath);
     const safeCwd = path.resolve(this.workDir, dirPath);
+    console.log("safeCwd", safeCwd);
+
     try {
       const fullPath = this.resolvePath(safeCwd);
       const workDir = path.resolve(this.workDir);
