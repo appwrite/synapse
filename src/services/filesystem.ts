@@ -7,6 +7,8 @@ import ignore from "ignore";
 import mime from "mime-types";
 import * as path from "path";
 import { Synapse } from "../synapse";
+import { exec, spawn } from "child_process";
+import { promisify } from "util";
 
 const IGNORE_PATTERNS = [
   "node_modules",
@@ -17,7 +19,7 @@ const IGNORE_PATTERNS = [
   ".git",
   "package-lock.json",
   "pnpm-lock.yaml",
-  "bun.lock"
+  "bun.lock",
 ];
 
 export type FileItem = {
@@ -152,7 +154,7 @@ export class Filesystem {
           const folderResult = await this.createFolder({ dirPath });
           if (!folderResult.success) {
             this.log(
-              `Failed to create parent directory for ${filePath}: ${folderResult.error}`,
+              `Failed to create parent directory for ${filePath}: ${folderResult.error}`
             );
 
             return { success: false, error: folderResult.error }; // failed to create parent directory
@@ -215,7 +217,7 @@ export class Filesystem {
       };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         success: false,
@@ -254,7 +256,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         success: false,
@@ -288,7 +290,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         success: false,
@@ -336,7 +338,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         success: false,
@@ -370,7 +372,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         success: false,
@@ -409,7 +411,7 @@ export class Filesystem {
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.log(
-        `Error creating directory at path ${fullPath}: ${errorMsg} (Code: ${(error as NodeJS.ErrnoException)?.code})`,
+        `Error creating directory at path ${fullPath}: ${errorMsg} (Code: ${(error as NodeJS.ErrnoException)?.code})`
       );
 
       return {
@@ -444,11 +446,72 @@ export class Filesystem {
       return { success: true, data };
     } catch (error) {
       this.log(
-        `Error reading directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`,
+        `Error reading directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  async startBackgroundProcess(params: {
+    command: string;
+    args: string[];
+    cwd: string;
+  }): Promise<
+    | { success: true; pid: number }
+    | { success: false; error: string }
+  > {
+    console.log("Starting background process:", params);
+
+    const process = spawn(params.command, [...params.args], {
+      cwd: params.cwd,
+      shell: true,
+    });
+
+    if (!process.pid) {
+      return {
+        success: false,
+        error: process.stderr.read(),
+      };
+    }
+
+    return { success: true, pid: process.pid };
+  }
+
+  async executeCommand(params: {
+    command: string;
+    cwd: string;
+    timeout?: number;
+  }): Promise<{ output: string; exitCode: number }> {
+    console.log("Executing command:", params);
+    const { command, cwd, timeout = 5000 } = params;
+
+    if (!command) {
+      throw new Error("Command is required");
+    }
+
+    if (!cwd) {
+      throw new Error("cwd is required");
+    }
+
+    try {
+      const { stdout, stderr } = await promisify(exec)(command, {
+        cwd,
+        encoding: "utf-8",
+        timeout,
+      });
+
+      return {
+        output: stdout || stderr || "",
+        exitCode: 0, // Success case - error case is handled in catch block
+      };
+    } catch (error: any) {
+      console.error("Failed to execute command:", error);
+      return {
+        output: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: 1,
       };
     }
   }
@@ -484,7 +547,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         success: false,
@@ -532,7 +595,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         success: false,
@@ -566,7 +629,7 @@ export class Filesystem {
       return { success: true };
     } catch (error) {
       this.log(
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         success: false,
@@ -584,7 +647,7 @@ export class Filesystem {
       path: string;
       event: string;
       content: string | null;
-    }) => void,
+    }) => void
   ): void {
     const fullPath = this.resolvePath(this.workDir);
     if (this.folderWatchers.has(fullPath)) {
@@ -663,17 +726,6 @@ export class Filesystem {
       watcher.close();
       this.folderWatchers.delete(fullPath);
     }
-  }
-
-  /**
-   * Updates the working directory
-   * @param workDir - The new working directory
-   */
-  updateWorkDir(workDir: string): void {
-    if (!fsSync.existsSync(workDir)) {
-      fsSync.mkdirSync(workDir, { recursive: true });
-    }
-    this.workDir = workDir;
   }
 
   /**
@@ -952,7 +1004,7 @@ export class Filesystem {
           }
           if (
             [...IGNORE_PATTERNS, ...(additionalIgnorePatterns || [])].some(
-              (pattern) => relPathFromWorkDir.includes(pattern),
+              (pattern) => relPathFromWorkDir.includes(pattern)
             )
           ) {
             continue;
@@ -990,7 +1042,7 @@ export class Filesystem {
       };
     } catch (error) {
       this.log(
-        `Error listing files in directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`,
+        `Error listing files in directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         success: false,
