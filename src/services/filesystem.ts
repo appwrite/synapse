@@ -988,7 +988,6 @@ export class Filesystem {
     if (!dirPath) {
       return { success: false, error: "path is required" };
     }
-
     const safeCwd = path.resolve(this.workDir, dirPath);
     
     console.log("[listFilesInDir]", {
